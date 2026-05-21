@@ -1,0 +1,38 @@
+# Build artifacts
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/
+!Package.xcodeproj/
+build/
+dist/
+*.app/
+*.dmg
+*.zip
+
+# macOS
+.DS_Store
+*.swp
+.AppleDouble
+.LSOverride
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+*.xccheckout
+*.moved-aside
+
+# Resolved package versions (we want lockfile for apps; keep this commented out)
+# Package.resolved
+
+# Local environment
+.env
+.env.local
+
+# Session memory (Claude Code)
+.remember/
+
+# Editor
+.vscode/
+.idea/
