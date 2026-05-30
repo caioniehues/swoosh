@@ -1,147 +1,222 @@
 # Swoosh — SPEC
 
-Open-source macOS window snapping via trackpad gestures on titlebars. A faithful, free, MIT-licensed clone of the snap subset of [Swish](https://highlyopinionated.co/swish/).
+> The canonical technical design. Strategy and the resolved product forks live in [`STRATEGY.md`](./STRATEGY.md); the de-risk spike and fixture harness in [`DERISK.md`](./DERISK.md); sequencing in [`ROADMAP.md`](./ROADMAP.md).
+>
+> **Status: pre-implementation. Spec only.** No code beyond stubs yet. Last updated 2026-05-30.
 
-> Status: pre-implementation. Spec only. No code beyond stubs yet.
+Open-source macOS window snapping and resizing via two-finger trackpad gestures on titlebars. A faithful, free, MIT-licensed reimplementation of the snap subset of [Swish](https://highlyopinionated.co/swish/) — matching its *feel*, beating its 3×3 size ceiling.
 
 ---
 
 ## 1. Goal
 
-Replicate Swish's titlebar-snap behavior: a two-finger swipe on any window's titlebar instantly snaps that window to a half / quarter / third of the screen. The same actions are invokable via keyboard shortcuts.
+Replicate the three things Swish users actually love, in this priority order:
 
-The differentiating UX detail is **localized invocation** — the gesture only fires when the cursor is over a window's titlebar, so normal two-finger scrolling everywhere else works unchanged.
+1. **Titlebar two-finger swipe → snap** to a half / quarter / third (or any fraction) of the screen. The gesture only fires when the cursor is over a window's titlebar, so normal two-finger scrolling everywhere else is untouched (**localized invocation** — the core UX detail).
+2. **Divider-drag multi-window resize** — when two windows share a snapped edge, dragging the gap resizes both at once. This is Swish's single most-cited *unique* feature; it is a headline, not plumbing.
+3. **Haptic threshold feedback** — a "ready" tap when a gesture crosses its commit threshold and a "done" tap on commit, so snapping *feels* native and physical.
+
+Beyond parity, the one capability we add on day one: **arbitrary fractional/pixel sizes** (e.g. ultrawide 4- and 5-column layouts), which Swish caps at 3×3 and defers to an unshipped "Swish 2."
+
+All actions are also invokable via keyboard shortcuts.
 
 ## 2. Non-goals (v1)
 
-- Dock gestures, menubar gestures (deferred to v2).
-- Multi-monitor or Spaces gestures (would require a SIP-off scripting addition à la yabai; out of scope).
-- Tiling mode, user-scriptable gestures.
-- Mac App Store distribution (impossible — sandbox forbids both AX writes and `MultitouchSupport.framework` access).
-- Magic Mouse support (v2 — Swish supports it via double-tap + modifier; not core).
+- Dock gestures, menubar gestures, App-Switcher gestures (deferred to v2).
+- Multi-monitor *gestures* (placement across displays works; cross-display *gestures* are v2) and Spaces gestures (would require a SIP-off scripting addition à la yabai; out of scope).
+- A scripting platform, control socket, or user-bindable arbitrary actions — an explicit strategic non-goal (`STRATEGY.md §4.2`). The engine is config-*driven* internally but exposes no user scripting surface in v1.
+- Mac App Store distribution (sandbox forbids both AX writes and `MultitouchSupport` access — structurally impossible).
+- Magic Mouse support (v2; Swish supports it via double-tap + modifier — not core).
 - Localization (English only in v1).
 
 ## 3. Differentiator
 
-A faithful, auditable, free implementation. The pitch is for users who can't or won't pay $16, who don't trust closed-source utilities with Accessibility permission, or who want to fork and extend.
-
-No novel features in v1 — match Swish's snap UX so reviewers can compare like-for-like. Differentiation is by **implementation transparency**, not feature set.
+A faithful, auditable, free implementation. The pitch is for users who can't or won't pay $16, who won't grant Accessibility to a closed binary, or who want to fork and extend. v1 matches Swish's snap UX so reviewers can compare like-for-like; differentiation is by **implementation transparency** and the **fraction-native engine**, not a sprawling feature set. See `STRATEGY.md §2` for why this survives Apple's free native tiling.
 
 ## 4. Gesture catalog (v1)
 
-The full set of recognized inputs and their actions. Cursor must be over a window titlebar for trackpad gestures to fire.
+Cursor must be over a window titlebar for trackpad gestures to fire.
 
 ### 4.1 Two-finger swipe on titlebar
 
 | Gesture | Action |
 |---|---|
-| Swipe ← | Snap window to left half |
-| Swipe → | Snap window to right half |
-| Swipe ↑ | Snap window to top half (or full-screen if already on top half — Swish behavior) |
-| Swipe ↓ | Snap window to bottom half (or restore to previous frame if already snapped) |
-| Swipe ↖ ↗ ↙ ↘ (diagonal) | Snap to quarter (TL / TR / BL / BR) |
+| Swipe ← / → | Snap to left / right half |
+| Swipe ↑ | Snap to top half — or full-screen if already on top half (Swish behavior) |
+| Swipe ↓ | Snap to bottom half — or restore previous frame if already snapped |
+| Swipe ↖ ↗ ↙ ↘ | Snap to quarter (TL / TR / BL / BR) |
 
-### 4.2 Two-finger hold + position on titlebar (3×3 grid)
+Direction resolves the dominant axis with a diagonal threshold (see `Direction` in §9).
 
-While holding two fingers on the titlebar, the area under the cursor highlights the destination cell of a 3×3 grid overlaid on the screen. Release fingers to commit the snap. Swipe outward to cancel.
+### 4.2 Two-finger hold + position on titlebar (grid picker)
 
-### 4.3 Keyboard shortcuts
+While holding two fingers on the titlebar, the cell under the cursor highlights the destination on a grid overlaid on the screen. Release to commit; swipe outward to cancel. The grid is **3×3 by default but configurable** (e.g. 4×1 or 5×1 for ultrawide) because the engine is fraction-native (§5) — the picker just renders whatever grid the resolved layout defines.
 
-Defaults shown. All configurable from Settings. Modifier prefix: `⌃⌥` (Control + Option), Swish-compatible.
+### 4.3 Divider-drag multi-window resize *(headline feature)*
 
-| Key (Arrows) | Key (WASD) | Action |
+When two windows are snapped sharing an edge, dragging the gap between them — anywhere along the shared edge — resizes both simultaneously.
+
+**Input path (distinct from the swipe pipeline).** Divider-drag is a *mouse/pointer drag*, not a scroll gesture, so it does not flow through the Layer 1 scroll-wheel tap. The event tap additionally observes `kCGEventLeftMouseDown` / `kCGEventLeftMouseDragged` / `kCGEventLeftMouseUp`. On left-mouse-down, a synchronous, non-blocking check (the same fast geometry source as §6.2 — `CGWindowListCopyWindowInfo` / the cached window map, **not** an AX hit-test) decides whether the cursor sits in the narrow band straddling two windows' shared snapped edge. If so, the event is consumed and a resize session begins; otherwise it passes through untouched. This second modality bypasses the titlebar-only §6.2 gate and is reflected in the §6 diagram and the §6.1 threading table.
+
+**Resize session.** Writes both windows' frames in lockstep on the `swoosh.ax` queue. The shared-edge relationship is inferred from current frames, not stored state, so it survives windows being moved by other tools.
+
+### 4.4 Haptic feedback
+
+- **Ready tap** when a swipe crosses its commit threshold or the hold-grid cursor enters a new cell.
+- **Done tap** on commit.
+- Configurable; off automatically on hardware without a haptic engine. Never fires during a cancelled gesture.
+
+**API path is spike-gated (S4 in `DERISK.md §1`).** The public `NSHapticFeedbackManager` is oriented to foreground AppKit views and the built-in trackpad, and exposes only three fixed patterns. Swoosh actuates from a *background, non-frontmost* utility, often on an *external* Magic Trackpad — an unproven combination. The M0 spike must confirm whether `NSHapticFeedbackManager` works in that context; if it does not, the real path is the private `MTActuator` family (`MTActuatorCreateFromDeviceID` / `MTActuatorOpen` / `MTActuatorActuate`), exported by the same `MultitouchSupport.framework` already loaded for finger-count. **If `MTActuator` is required, it is a fourth private-API surface** and must appear in the capability manifest and every "private-API surface" count (`STRATEGY.md §5`).
+
+### 4.5 Keyboard shortcuts
+
+Defaults shown; all configurable. Modifier prefix `⌃⌥` (Control+Option), Swish-compatible.
+
+| Arrows | WASD | Action |
 |---|---|---|
-| ← | A | Left half |
-| → | D | Right half |
+| ← / → | A / D | Left / right half |
 | ↑ | W | Top half / fullscreen |
 | ↓ | S | Bottom half / restore |
-| ⌃⌥1..9 | — | 3×3 grid cells (1=BL, 9=TR — numpad layout) |
+| ⌃⌥1..9 | — | Grid cells (numpad layout: 1 = BL, 9 = TR) |
 | ⌃⌥0 | — | Full screen |
 | ⌃⌥⏎ | — | Restore previous frame |
+| ⌃⌥F | — | Exit native fullscreen |
 
-### 4.4 Multi-window resize
+### 4.6 Exit-fullscreen + restore (first-class verbs)
 
-When two windows are snapped sharing an edge, dragging the gap between them (anywhere along the shared edge) resizes both windows simultaneously.
+Two dead-ends Swish leaves open, fixed here:
 
-## 5. Architecture
+- **Exit fullscreen** — a gesture and shortcut (`⌃⌥F`) reliably exit a window from native macOS fullscreen. There is **no public** fullscreen attribute or action (the SDK exposes only `kAXFullScreenButtonAttribute`, a button *reference*, plus the `AXPress`/`AXRaise` actions). Two real paths: set the **undocumented private** attribute `"AXFullScreen"` (`CFSTR("AXFullScreen")`) to `false`, or resolve the window's `kAXFullScreenButton` child element and send it `AXPress`. The private-attribute path is preferred for reliability; because `"AXFullScreen"` is private, it counts toward the capability surface (`STRATEGY.md §5`). Replaces the old spec's "fullscreen = no-op" contradiction.
+- **Restore** — `Swipe ↓` on an already-snapped window, the keyboard restore (`⌃⌥⏎`), and the post-snap restore all return the window's **previous frame**, backed by a small per-window **ring buffer** (default depth 4) so repeated restore walks back through recent placements. The original pre-snap frame is always the deepest entry.
 
-Four layers, each with a single responsibility. Events flow downward; no upward calls.
+## 5. Snap engine — fraction/pixel-native
 
-```
-                    ┌────────────────────────────────┐
-                    │   CGEventTap (session-level)   │   Layer 1: Capture
-                    │  observes kCGEventScrollWheel  │
-                    └────────────┬───────────────────┘
-                                 │ raw scroll event
-                                 ▼
-              ┌─────────────────────────────────────────┐
-              │  MultitouchSupport.framework (private)  │   Layer 2: Disambiguate
-              │  via MTRegisterContactFrameCallback     │
-              │  → confirm: exactly 2 fingers down?     │
-              └────────────┬────────────────────────────┘
-                           │ yes / no
-                           ▼
-        ┌───────────────────────────────────────────────┐
-        │  AX hit-test at cursor location               │   Layer 3: Locate
-        │  AXUIElementCopyElementAtPosition             │
-        │  walk to kAXWindowRole                        │
-        │  cursor.y within window's titlebar band?      │
-        └────────────┬──────────────────────────────────┘
-                     │ window-ref + direction + magnitude
-                     ▼
-              ┌───────────────────────────────┐
-              │  Snap engine                  │   Layer 4: Act
-              │  - resolve target frame       │
-              │  - AXUIElementSetAttribute    │
-              │    (kAXPosition / kAXSize)    │
-              │  - consume original event     │
-              └───────────────────────────────┘
+The core abstraction is **not** a fixed enum of named targets. A snap target resolves to a normalized rectangle over the window's screen visible frame; named presets and grids are conveniences that produce one.
+
+```swift
+/// A rectangle expressed as fractions (0...1) of a screen's visibleFrame,
+/// with optional pixel insets. (0,0) is top-left. Resolve against the
+/// visibleFrame of the screen containing the window, then express the result
+/// in AX global coordinates (top-left origin, +y down, primary-display
+/// referenced) — see §10. NO flip is needed at the AX apply boundary; a flip
+/// applies ONLY if an intermediate step uses AppKit/NSScreen (bottom-left)
+/// coords, and that flip must use the PRIMARY screen's height.
+struct FractionalRect {
+    var x, y, w, h: Double          // fractions of visibleFrame
+    var inset: NSEdgeInsets = .init() // pixel gaps (outer margins / gutters)
+}
+
+enum SnapTarget {
+    case fraction(FractionalRect)                    // the native vocabulary
+    case preset(Preset)                              // leftHalf, topRightQuarter, centerThird, …
+    case gridCell(row: Int, col: Int, rows: Int, cols: Int) // any N×M, incl. ultrawide 5×1
+    case fullScreen
+    case restore                                     // pops the ring buffer (§4.6)
+}
 ```
 
-### 5.1 Threading model
+- **Presets** (`leftHalf = (0,0,0.5,1)`, `topRightQuarter = (0.5,0,0.5,0.5)`, thirds, etc.) compile to `FractionalRect`.
+- **Ultrawide N-column** is just `gridCell(row:0, col:i, rows:1, cols:N)` → `(i/N, 0, 1/N, 1)`. No new code path — this is what "kills the 3×3 ceiling" mechanically.
+- **Pixel gaps** (outer margin, inter-window gutter) are applied as insets after fraction resolution, so layouts stay resolution-independent.
+- v1 ships a **tight default set** (halves, quarters, thirds, fullscreen) plus configurable grids. Arbitrary fractions are the engine's native unit, *not* a v1 user-facing layout DSL (that would be the platform identity we declined — `STRATEGY.md §4.2`).
+- **v1 config surface is bounded:** grid dimensions are set via the M5 SwiftUI settings UI (row/column count fields only). There is **no** user-editable config file or layout-definition format in v1 — that is the declined config-DSL surface (`STRATEGY.md §4.2`). This keeps the identity constraint checkable during implementation.
+
+## 6. Architecture
+
+Four layers, single responsibility each. Events flow downward; no upward calls.
+
+```
+            ┌────────────────────────────────┐
+            │   CGEventTap (session-level)   │   Layer 1: Capture
+            │  observes kCGEventScrollWheel  │
+            └────────────┬───────────────────┘
+                         │ raw scroll event
+                         ▼
+       ┌─────────────────────────────────────────┐
+       │  Finger-count source (§7)               │   Layer 2: Disambiguate
+       │  MultitouchSupport primary / NSEvent PB │
+       │  → exactly 2 contacts down?             │
+       └────────────┬────────────────────────────┘
+                    │ yes / no
+                    ▼
+   ┌───────────────────────────────────────────────┐
+   │  Locate + decide — SYNCHRONOUS, in tap thread  │   Layer 3: Locate + decide
+   │  fast geometry: CGWindowListCopyWindowInfo     │
+   │  (or a cached window map) — NO AX here         │
+   │  cursor in a window's titlebar band?           │
+   │  → decide suppress / pass NOW                  │
+   └────────────┬──────────────────────────────────┘
+                │ if suppress: consume event + enqueue act
+                ▼
+         ┌───────────────────────────────────────┐
+         │  Snap engine (§5) — OFF-THREAD        │   Layer 4: Act (swoosh.ax)
+         │  AXUIElementCopyElementAtPosition →   │
+         │  precise window-ref; resolve Frac-    │
+         │  tionalRect; AXUIElementSetAttribute  │
+         └───────────────────────────────────────┘
+```
+
+### 6.1 Threading model
 
 | Layer | Thread / queue | Why |
 |---|---|---|
-| CGEventTap callback | Tap's runloop on a dedicated background thread | Apple requires tap callbacks to return fast (<70 ms) or the tap is disabled |
-| Multitouch callback | The framework's own callback thread | Cannot block; reads only the current finger count, atomic |
-| AX hit-test | Serial queue `swoosh.ax` | AX calls are blocking IPC; must not be on event-tap thread |
-| Window placement | Same `swoosh.ax` queue | Serializes writes to avoid races |
+| CGEventTap callback | Tap's runloop, dedicated background thread | Apple requires tap callbacks to return fast (<70 ms) or the tap is disabled |
+| Suppression decision (fast geometry) | Inline in the tap callback | `CGWindowListCopyWindowInfo` / a cached window map is non-blocking; yields the synchronous suppress/pass answer without AX |
+| Finger-count source | Framework's own callback thread (MTS) / main (NSEvent) | Reads only current contact count, atomic |
+| AX locate + window placement | Serial queue `swoosh.ax` | `AXUIElementCopyElementAtPosition` and AX writes are blocking IPC; they run **only** in the off-thread *act* phase, never on the tap thread. Serializes writes (incl. divider-drag's paired writes) to avoid races |
 | Settings UI | `@MainActor` | SwiftUI requirement |
 
-The event tap callback's only synchronous work is checking the finger-count atomic and (if it matches) enqueuing the hit-test onto `swoosh.ax`. Suppression of the original event is decided synchronously by an opt-in flag set by the finger-count check — the AX work happens after the event has already been swallowed.
+The event-tap callback's only synchronous work is (1) reading the finger-count atomic, (2) for a matching scroll phase, consulting the fast geometry source to check whether the cursor is over a titlebar band, and (3) deciding suppress/pass **synchronously** from that. Only when it suppresses does it enqueue the precise AX locate + placement onto `swoosh.ax`. The blocking AX call never runs on the tap thread — this is what routes around FB11586064 *while still* honouring localized invocation (see §6.2).
 
-### 5.2 Suppression strategy
+### 6.2 Suppression strategy *(the hard part)*
 
-The hardest part. Two-finger pan on a titlebar must be swallowed without breaking normal scrolling on the same titlebar (e.g. some apps put a scroll view in a custom titlebar).
+Two-finger pan on a titlebar must be swallowed without breaking normal scrolling on that same titlebar (some apps embed a scroll view in a custom titlebar). The decision must be **synchronous and non-blocking** — a `CGEventTap` callback returns immediately and a swallowed event cannot be un-swallowed later, so the suppress/pass answer cannot wait on an AX hit-test. Consume the event only if **all three** hold, all checkable in-thread:
 
-Approach: only consume the event if **all three** are true:
-1. Exactly 2 active contacts.
-2. Event's `kCGScrollWheelEventScrollPhase` is `kCGScrollPhaseBegan` or `kCGScrollPhaseChanged`.
-3. AX hit-test returns a window whose subrole is `kAXStandardWindowSubrole` and the cursor y is within `[kAXFrame.minY, kAXFrame.minY + 28pt]` (titlebar band).
+1. Exactly 2 active contacts (the finger-count atomic).
+2. `kCGScrollWheelEventScrollPhase` is `kCGScrollPhaseBegan` or `kCGScrollPhaseChanged`.
+3. **Fast geometry** (`CGWindowListCopyWindowInfo`, or a window-frame/titlebar map cached and refreshed off-thread) places the cursor inside the titlebar band of the frontmost standard window at that point — `[frame.minY, frame.minY + titlebarHeight]`.
 
-If any fails, return the event unchanged. The 28pt titlebar height is the standard macOS metric; tall titlebars (Safari) are detected by reading `kAXTitleBarHeightAttribute` when available.
+If any fails, return the event unchanged. The precise `AXUIElementCopyElementAtPosition` hit-test (window-ref, `kAXStandardWindowSubrole` confirmation) runs later, off-thread, in the *act* phase — never here. Titlebar height defaults to 28pt; for tall/custom titlebars (Safari, Electron) derive it from real signals (§10), not a fixed attribute.
 
-## 6. Permission flow
+> ⚠️ **Known macOS hazards** (full detail in `DERISK.md`): the `.mayBegin` scroll phase was removed in Monterey (FB9724671) — do not depend on it; and a synchronous AX hit-test can block scroll up to ~500ms (FB11586064) — which is exactly why the suppress/pass decision uses fast in-thread geometry and the AX hit-test runs only off-thread in the act phase.
+
+## 7. Finger-count source — MultitouchSupport primary, NSEvent Plan B
+
+Per `STRATEGY.md §4.3`, the primary path is the private `MultitouchSupport.framework`; the public `NSEvent` path is a specced fallback.
+
+```swift
+protocol FingerCountSource {
+    var contactCount: Int { get }   // atomic
+    func start() throws
+    func stop()
+}
+```
+
+- **`MultitouchClient` (primary).** Loads `MultitouchSupport.framework` at runtime via `dlopen`/`dlsym` — **never** via SPM `.linkedFramework` — and registers `MTRegisterContactFrameCallback`. Gives precise, system-wide two-finger disambiguation (the reason Swish/Penc used it). As of macOS 14 it does **not** require Input Monitoring; this is a tracked v1 risk that may change.
+- **`NSEventFingerCount` (Plan B).** Uses public touch APIs. Accepts some false negatives (e.g. Magic Mouse single-finger ambiguity) and weaker system-wide reliability. Its trigger conditions (when to auto-fall-back, or expose a toggle) live in `DERISK.md`. Both paths satisfy `FingerCountSource`, so Layers 1/3/4 are agnostic to which is active.
+
+The fragility of the private path is the project's central technical risk; it is *managed*, not avoided, by the fixture harness (`DERISK.md`).
+
+## 8. Permission flow
 
 ```
 First launch
-  ├── Show onboarding window
-  ├── Explain why Accessibility is needed (titlebar hit-test + window move)
+  ├── Onboarding window: explain why Accessibility is needed (titlebar hit-test + window move)
   ├── Open System Settings > Privacy & Security > Accessibility
   ├── Poll AXIsProcessTrustedWithOptions every 1s
   └── On grant → close onboarding, start event tap
 
-If Sequoia (15+) native window tiling is detected enabled
+If macOS 15+ native window tiling is detected enabled
   └── One-time alert: "macOS tiling will fight Swoosh's snaps. Disable it?"
-      → Settings > Desktop & Dock > Windows > "Drag windows to screen edges to tile" = off
-      → User dismissable with "I know what I'm doing"
+      → Desktop & Dock > Windows > "Drag windows to screen edges to tile" = off
+      → Dismissable with "I know what I'm doing"
 ```
 
-`MultitouchSupport.framework` does **not** require Input Monitoring permission as of macOS 14 — it's a private SPI that talks directly to IOHID. This may change; specced as a v1 risk.
+We request **Accessibility only** (least privilege, `STRATEGY.md §5`). If a future macOS forces the MultitouchSupport path to require Input Monitoring, the onboarding gains a second, separately-justified prompt.
 
-## 7. Key types (Swift API sketch)
+## 9. Key types (Swift API sketch)
 
-Sketches only, not final signatures. Establishes the layer boundaries.
+Sketches, not final signatures — they establish the layer boundaries.
 
 ```swift
 // Layer 1
@@ -151,197 +226,58 @@ final class EventTap {
     func disable()
 }
 
-// Layer 2
-final class MultitouchClient {
-    var fingerCount: Int { get }   // atomic
-    func start() throws
-    func stop()
+// Layer 2 — see §7 for FingerCountSource
+
+// Layer 3 — fast, synchronous (tap thread): geometry only, NO AX
+enum FastLocate {
+    /// CGWindowListCopyWindowInfo / cached map — drives the synchronous
+    /// suppress/pass decision (§6.2) and the divider-drag band check (§4.3).
+    static func titlebarBandUnderCursor(at point: CGPoint) -> CGRect?
+    static func sharedEdge(at point: CGPoint) -> Edge?
 }
 
-// Layer 3
+// Layer 4 locate — off-thread (swoosh.ax): precise AX
 struct WindowHit {
     let window: AXUIElement
     let pid: pid_t
-    let frame: CGRect            // window frame in global coords
-    let titlebarHeight: CGFloat
+    let frame: CGRect            // AX global coords (top-left origin)
+    let titlebarHeight: CGFloat  // derived per §10, NOT from a fixed attribute
 }
 enum HitTest {
-    static func windowUnderCursor(at point: CGPoint) -> WindowHit?
+    static func windowUnderCursor(at point: CGPoint) -> WindowHit?  // AXUIElementCopyElementAtPosition
     static func isOverTitlebar(_ hit: WindowHit, cursor: CGPoint) -> Bool
 }
 
-// Layer 4
-enum SnapTarget {
-    case leftHalf, rightHalf, topHalf, bottomHalf
-    case topLeftQuarter, topRightQuarter, bottomLeftQuarter, bottomRightQuarter
-    case leftThird, centerThird, rightThird
-    case fullScreen, restore
-    case gridCell(row: Int, col: Int, rows: Int, cols: Int)
-}
+// Layer 4 — see §5 for SnapTarget / FractionalRect
 enum SnapEngine {
-    static func frame(for target: SnapTarget, on screen: NSScreen) -> CGRect
+    static func rect(for target: SnapTarget, on screen: NSScreen) -> CGRect
     static func apply(_ target: SnapTarget, to window: AXUIElement) throws
+    static func resizePair(_ a: AXUIElement, _ b: AXUIElement, alongShared edge: Edge, to point: CGPoint) throws
+}
+
+// Restore history (§4.6)
+struct FrameHistory {           // per-window ring buffer, default depth 4
+    mutating func push(_ frame: CGRect)
+    mutating func popPrevious() -> CGRect?
 }
 
 enum Direction {
-    case left, right, up, down
-    case upLeft, upRight, downLeft, downRight
-    init?(scrollDelta: CGVector)   // resolves dominant axis + diagonal threshold
+    case left, right, up, down, upLeft, upRight, downLeft, downRight
+    init?(scrollDelta: CGVector) // dominant axis + diagonal threshold
 }
 ```
 
-## 8. Edge cases & known issues
+## 10. Edge cases & known issues
 
-- **Stage Manager**: re-tiles windows after AX placement; not officially supported in v1.
-- **macOS 15 Sequoia native tiling**: animations conflict with our placement. Onboarding prompts the user to disable.
-- **Fullscreen Spaces**: AX placement on a fullscreen window has no useful meaning; gesture is no-op when window is fullscreen.
-- **Per-display scaling / Retina**: AX uses points, but `NSScreen.frame` origin differs per display. Always compute target frame relative to the *screen containing the window's current center*, not the main screen.
-- **Custom titlebars (Electron, Safari)**: titlebar height varies. Read `kAXTitleBarHeightAttribute`; fall back to 28pt if absent.
-- **Windows refusing AX writes**: some apps (older Java, certain Electron builds) ignore `kAXPositionAttribute`. Log + no-op.
-- **Discontiguous screen layouts**: when displays don't share an edge, "snap to next display" semantics are out of scope (v2).
-- **Pinned-to-all-desktops windows**: may behave unexpectedly with Spaces; not addressed in v1.
+- **Stage Manager** re-tiles after AX placement; not officially supported in v1.
+- **macOS 15+ native tiling** animations conflict with our placement; onboarding prompts to disable.
+- **Native fullscreen** — placement is meaningless; the exit-fullscreen verb (§4.6) is the supported interaction, otherwise no-op.
+- **Per-display scaling / Retina & coordinate spaces** — resolve the `FractionalRect` against the visibleFrame of the *screen containing the window's current center* (not the main screen). AX window position is **global, top-left origin, +y down, referenced to the primary display** — write it directly via `kAXPosition` with no flip. A flip to/from AppKit's bottom-left space is needed *only* if an intermediate computation uses `NSScreen` coordinates, and that flip must use the **primary** screen's height as the Y-reference, not the window's screen (which is wrong on a secondary display of different height). See §5.
+- **Custom titlebars (Electron, Safari)** — there is **no** `kAXTitleBarHeightAttribute` in the SDK. Derive the titlebar band from real signals: the frames of AX title-UI elements (`kAXCloseButton` / `kAXFullScreenButton` subrole children, or the toolbar), or the gap between the window frame and its content-area frame, or a per-app override table — with 28pt as the documented fallback.
+- **Windows refusing AX writes** (older Java, some Electron builds ignore `kAXPositionAttribute`) — log + no-op.
+- **Coexistence with BetterTouchTool / Multitouch** — both contend for `MultitouchSupport` + `CGEventTap`, which can freeze the trackpad. Detect a competing client at launch and offer an explicit cooperative (listen-only) mode rather than a buried toggle. *(Designed-in, targeted for v1.1; tracked in `ROADMAP.md`.)*
 
-## 9. Testing strategy
+## 11. Distribution & de-risk (cross-references)
 
-| Layer | Test type | Notes |
-|---|---|---|
-| Layer 1 (EventTap) | Manual + smoke | Can't unit-test a real CGEventTap |
-| Layer 2 (Multitouch) | Manual | Private API; mock the count for downstream tests |
-| Layer 3 (HitTest) | Unit | `isOverTitlebar` is pure math on a `CGRect`; testable in isolation |
-| Layer 4 (Snap math) | Unit | `SnapEngine.frame(for:on:)` is pure; full coverage of every `SnapTarget` × screen-size combo |
-| Direction resolver | Unit | `Direction(scrollDelta:)` is pure |
-| Integration | Manual matrix | See §11 |
-
-Manual test matrix lives in `docs/manual-test-matrix.md` (created when implementation starts).
-
-## 10. Plan B for `MultitouchSupport`
-
-If Apple removes or breaks `MultitouchSupport.framework`:
-
-1. Wrap each captured `kCGEventScrollWheel` as `NSEvent.event(with:)`.
-2. Inspect `event.subtype` — `.touch` indicates trackpad pan (vs. mouse wheel which is `.gestureBegan`/`.gestureEnded` empty).
-3. Inspect `event.momentumPhase` and `event.phase` — trackpad pan has `.began` / `.changed` / `.ended`; mouse wheel does not.
-4. Accept some false negatives (Magic Mouse single-finger scroll looks similar enough that we can't perfectly distinguish; document the limitation).
-
-Plan B is specced but not implemented unless triggered.
-
-## 11. Technical decisions
-
-| Concern | Decision | Rationale |
-|---|---|---|
-| Language | Swift 5.10+ | Native, AX/CG/SwiftUI integration |
-| UI framework | SwiftUI + `MenuBarExtra` | Less code for settings; AppKit only for taps |
-| macOS target | 14.0 Sonoma+ | Modern SwiftUI, ~90% of active users, less legacy code |
-| License | MIT | Permissive; matches Rectangle, Amethyst, AeroSpace |
-| Build | Swift Package Manager (executable target) + shell script to bundle `.app` | Avoids Xcode-project XML; works headless in CI |
-| IDE | Open `Package.swift` in Xcode | No checked-in `.xcodeproj` |
-| Updates | None in v0.x (manual GitHub Releases). | Personal project framing |
-| Distribution | Unsigned zipped `.app`. | $99/yr Developer Program deferred |
-| CI | GitHub Actions: `swift build` + `swift test` + bundle on tag | No notarization step yet |
-| Testing | `swift-testing` (Swift 6) for unit tests | Modern; better ergonomics than XCTest |
-
-## 12. De-risk plan (week 1 — must pass before any UI is written)
-
-Ship a ~200-line menubar-only spike (`swoosh-spike` executable) that:
-
-1. Requests Accessibility permission and waits for grant via polling.
-2. Installs a `CGEventTap` listening to `kCGEventScrollWheel` at `.cgSessionEventTap`.
-3. Subscribes to `MTDeviceCreateDefault` contact-frame callbacks; maintains an atomic finger count.
-4. On a scroll event where `fingerCount == 2`: calls `AXUIElementCopyElementAtPosition`, walks up to `kAXWindowRole`, checks whether cursor.y is within the titlebar band of the window's `kAXFrame`.
-5. If yes: `os_log` `{pid, title, direction, suppressed: true}` and returns `nil` from the tap callback to consume the event.
-6. If no: returns the event unchanged.
-
-**Success criteria** (all three must hold):
-- Two-finger swipe on a titlebar logs the direction and does NOT scroll the underlying view.
-- Two-finger scroll on Safari content, Finder, VS Code editor — scrolls normally.
-- Single-finger drag on a titlebar — still moves the window normally.
-
-If any of these fails, the project pivots before any UI work happens.
-
-## 13. Project layout
-
-```
-swoosh/
-├── SPEC.md
-├── README.md
-├── LICENSE                                (MIT)
-├── .gitignore
-├── Package.swift                          (SPM, executable target)
-├── Sources/
-│   ├── Swoosh/                            (the app)
-│   │   ├── App.swift                      (@main, MenuBarExtra)
-│   │   ├── Gestures/
-│   │   │   ├── EventTap.swift             (CGEventTap wrapper)
-│   │   │   ├── MultitouchClient.swift     (private-API bridge)
-│   │   │   ├── MultitouchSupport.h        (private API headers)
-│   │   │   └── GestureRecognizer.swift    (composes layers 1+2)
-│   │   ├── Windows/
-│   │   │   ├── AXBridge.swift             (Accessibility wrappers)
-│   │   │   ├── WindowHitTest.swift        (cursor → window + titlebar test)
-│   │   │   └── WindowMover.swift          (apply target frame)
-│   │   ├── Snap/
-│   │   │   ├── Direction.swift            (scroll delta → cardinal/diagonal)
-│   │   │   ├── Grid.swift                 (2x2, 3x2, 3x3 math)
-│   │   │   └── SnapEngine.swift           (SnapTarget → CGRect)
-│   │   ├── Settings/
-│   │   │   ├── SettingsView.swift
-│   │   │   └── Preferences.swift          (@AppStorage)
-│   │   └── Onboarding/
-│   │       └── PermissionsView.swift
-│   └── SwooshSpike/                       (week-1 de-risk binary)
-│       └── main.swift
-├── Tests/
-│   └── SwooshTests/
-│       ├── GridTests.swift
-│       ├── DirectionTests.swift
-│       └── SnapEngineTests.swift
-├── Resources/
-│   └── Info.plist                         (LSUIElement=YES, AX usage description)
-├── Scripts/
-│   └── bundle.sh                          (wrap binary into .app)
-├── docs/
-│   └── manual-test-matrix.md              (added when impl starts)
-└── .github/
-    └── workflows/
-        └── ci.yml                         (build + test on push, bundle on tag)
-```
-
-## 14. Milestones
-
-| Week | Deliverable | Exit criteria |
-|---|---|---|
-| 1 | Spike passes (§12) | All three success-criteria bullets hold on macOS 14 + 15 + 26 |
-| 2 | Snap engine | Halves/quarters/thirds via AX, unit tests green |
-| 3 | Keyboard shortcuts + multi-window resize | Default bindings functional |
-| 4 | Settings UI + onboarding + Sequoia tiling detection | First-launch flow works end-to-end |
-| 5 | GitHub Actions: build + test + bundle-on-tag (unsigned) | `git tag v0.1.0` produces a downloadable zip |
-| later | Signing, notarization, Sparkle, Homebrew Cask | Only if there's an audience |
-
-## 15. Project framing
-
-This is a personal open-source project, not a product. That collapses several decisions:
-
-- **Distribution v0.x**: unsigned `.app` zipped on GitHub Releases. README documents `xattr -dr com.apple.quarantine` for users.
-- **Updates v0.x**: skip Sparkle. Users grab new releases manually.
-- **Telemetry**: none, ever.
-- **Support**: best-effort via GitHub issues. No SLA.
-
-Sparkle / signing / notarization / Homebrew Cask sit in a "v1.0 — if anyone else cares" milestone.
-
-## 16. Prior art and references
-
-- [Swish](https://highlyopinionated.co/swish/) — the original, closed-source, $16
-- [Rectangle](https://github.com/rxhanson/Rectangle) — MIT, keyboard snapping only
-- [Loop](https://github.com/MrKai77/Loop) — GPL-3, radial-menu invocation
-- [yabai](https://github.com/koekeishiya/yabai) — MIT, tiling, SIP-disabled features
-- [Mac Mouse Fix](https://github.com/noah-nuebling/mac-mouse-fix) — GPL-3, references for private MultitouchSupport usage
-- [OpenMultitouchSupport](https://github.com/Kyome22/OpenMultitouchSupport) — open Swift wrapper for the private framework
-- [usagimaru/EventTapper](https://github.com/usagimaru/EventTapper) — CGEventTap reference
-- Ryan Hanson, [Touching Apple's private MultitouchSupport framework](https://medium.com/ryan-hanson/touching-apples-private-multitouch-framework-64f87611cfc9)
-- Apple, [AXUIElement Reference](https://developer.apple.com/documentation/applicationservices/axuielement_h)
-- Apple, [Quartz Event Services](https://developer.apple.com/documentation/coregraphics/quartz_event_services)
-
-## 17. Open questions
-
-- Name "Swoosh" kept for now (personal project; revisit if it ships publicly).
-- Whether to expose Plan B (NSEvent-only) as a user toggle for users who don't want a private-API dependency.
+- **Distribution:** self-owned Homebrew tap with `xattr` postflight now ($0); notarization is a deferred, reversible upgrade. Full rationale and the Sept 1 2026 cask-cutoff trigger: `STRATEGY.md §4.4` and `ROADMAP.md`.
+- **De-risk:** the week-1 spike and the record-and-replay fixture harness that makes the private-API path maintainable: `DERISK.md`. **Hard rule:** any change to `EventTap` / the gesture recognizer must re-pass the `DERISK.md` matrix before merge.
