@@ -183,6 +183,25 @@ func runSuppress() -> Bool {
     return true
 }
 
+/// U4 — S3: off-thread AX locate + move/resize. Default is a dry build check.
+/// `M0_AX=1 ... axact` runs the self-test against the window under the cursor
+/// (needs Accessibility; may prompt). Move the cursor over a window titlebar first.
+func runAXAct() -> Bool {
+    log.record("axact.start", ["os": osVersionString(), "axTrusted": AXIsProcessTrusted()])
+    guard ProcessInfo.processInfo.environment["M0_AX"] == "1" else {
+        log.record("axact.result", [
+            "mode": "dry",
+            "pass": true,
+            "note": "build-validated only; set M0_AX=1 to run the AX move/resize self-test "
+                  + "(needs Accessibility, may prompt). The S3 gate runs on hardware.",
+        ])
+        return true
+    }
+    AXActProbe(log: log).runSelfTest()
+    log.record("axact.result", ["mode": "ax", "pass": true, "note": "inspect ax.window / ax.write."])
+    return true
+}
+
 switch probe {
 case "scaffold":
     exit(runScaffold() ? 0 : 1)
@@ -190,6 +209,8 @@ case "fingers":
     exit(runFingers() ? 0 : 1)
 case "suppress":
     exit(runSuppress() ? 0 : 1)
+case "axact":
+    exit(runAXAct() ? 0 : 1)
 default:
     log.record("error.unknownProbe", ["probe": probe])
     FileHandle.standardError.write(Data("unknown probe: \(probe)\n".utf8))
