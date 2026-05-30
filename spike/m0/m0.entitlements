@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required to dlopen the Apple-signed private MultitouchSupport framework
+         from a differently-signed (ad-hoc) binary under hardened runtime (KTD5). -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- NOTE: there is deliberately NO com.apple.security.app-sandbox key —
+         the private framework is inaccessible to sandboxed processes. This is
+         the broadest signing posture in the project and is THROWAWAY: the
+         product binary derives its entitlements fresh from the minimal set. -->
+</dict>
+</plist>
