@@ -95,9 +95,56 @@ func runScaffold() -> Bool {
     return pass
 }
 
+/// U2 — S2: finger count. `fingers` enumerates devices (safe, no Input
+/// Monitoring). `M0_LISTEN=1 ... fingers` additionally starts the contact stream
+/// (needs Input Monitoring + physical touch) — the real S2 / KTD6 measurement.
+func runFingers() -> Bool {
+    log.record("fingers.start", ["os": osVersionString()])
+    let before = tccState()
+    log.record("tcc.before", [
+        "accessibility": before.accessibility,
+        "inputMonitoring": before.inputMonitoring,
+    ])
+    guard let client = MultitouchClient(log: log) else {
+        log.record("fingers.result", ["pass": false, "reason": "load/resolve MultitouchSupport failed"])
+        return false
+    }
+    let devices = client.enumerate()
+
+    guard ProcessInfo.processInfo.environment["M0_LISTEN"] == "1" else {
+        log.record("fingers.result", [
+            "mode": "enumerate-only",
+            "devices": devices.count,
+            "pass": !devices.isEmpty,
+            "note": "set M0_LISTEN=1 to start the contact stream (Input Monitoring + two-finger touch).",
+        ])
+        return !devices.isEmpty
+    }
+
+    // Listen mode — run by the user on real hardware with a trackpad.
+    client.startListening()
+    let seconds = 6.0
+    log.record("fingers.listening",
+               ["seconds": seconds, "instruction": "touch the trackpad with two fingers now"])
+    Thread.sleep(forTimeInterval: seconds)
+    client.stopListening()
+    let after = tccState()
+    log.record("fingers.result", [
+        "mode": "listen",
+        "framesSeen": client.framesSeen,
+        "maxFingers": Int(client.maxCount),
+        "tccAfter_inputMonitoring": after.inputMonitoring,
+        "pass": client.framesSeen > 0,
+        "note": "KTD6: compare frames-arrive with Input Monitoring granted vs revoked.",
+    ])
+    return client.framesSeen > 0
+}
+
 switch probe {
 case "scaffold":
     exit(runScaffold() ? 0 : 1)
+case "fingers":
+    exit(runFingers() ? 0 : 1)
 default:
     log.record("error.unknownProbe", ["probe": probe])
     FileHandle.standardError.write(Data("unknown probe: \(probe)\n".utf8))
