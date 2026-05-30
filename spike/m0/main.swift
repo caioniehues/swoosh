@@ -202,6 +202,39 @@ func runAXAct() -> Bool {
     return true
 }
 
+/// U5 — S4: MTActuator background haptics. Default enumerates + checks the
+/// actuator symbols (no buzz). `M0_HAPTIC=1 ... haptics` physically actuates the
+/// trackpad — the only ground truth is whether you FEEL the tap.
+func runHaptics() -> Bool {
+    log.record("haptics.start", ["os": osVersionString()])
+    guard let mt = MultitouchClient(log: log) else {
+        log.record("haptics.result", ["pass": false, "reason": "MultitouchSupport load failed"])
+        return false
+    }
+    let deviceIDs = mt.enumerate().map { $0.deviceID }.filter { $0 != 0 }
+    guard let probe = HapticProbe(log: log) else {
+        log.record("haptics.result", ["pass": false, "reason": "MTActuator symbols missing"])
+        return false
+    }
+    log.record("haptics.ready", ["devicesWithID": deviceIDs.count])
+
+    guard ProcessInfo.processInfo.environment["M0_HAPTIC"] == "1" else {
+        log.record("haptics.result", [
+            "mode": "dry",
+            "pass": true,
+            "devicesWithID": deviceIDs.count,
+            "note": "set M0_HAPTIC=1 to actuate (physically buzzes the trackpad). The public "
+                  + "NSHapticFeedbackManager path is not attempted (KTD3).",
+        ])
+        return true
+    }
+    let fired = probe.actuateAll(deviceIDs: deviceIDs)
+    log.record("haptics.result",
+               ["mode": "actuate", "pass": fired,
+                "note": "did you FEEL a tap? that physical sensation is the real S4 oracle."])
+    return fired
+}
+
 switch probe {
 case "scaffold":
     exit(runScaffold() ? 0 : 1)
@@ -211,6 +244,8 @@ case "suppress":
     exit(runSuppress() ? 0 : 1)
 case "axact":
     exit(runAXAct() ? 0 : 1)
+case "haptics":
+    exit(runHaptics() ? 0 : 1)
 default:
     log.record("error.unknownProbe", ["probe": probe])
     FileHandle.standardError.write(Data("unknown probe: \(probe)\n".utf8))
