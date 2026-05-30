@@ -140,11 +140,56 @@ func runFingers() -> Bool {
     return client.framesSeen > 0
 }
 
+/// U3 — S1: capture & suppress. Default is a dry, dialog-free build check.
+/// `M0_TAP=1 ... suppress` installs the active session tap (needs Accessibility;
+/// may prompt). `M0_DWELL_MS=<n>` runs the disable-threshold dwell-sweep. For
+/// live finger data, run a `M0_LISTEN=1 ... fingers` listener alongside.
+func runSuppress() -> Bool {
+    log.record("suppress.start", ["os": osVersionString(), "axTrusted": AXIsProcessTrusted()])
+    let counter = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
+    counter.initialize(to: 0)
+    defer { counter.deallocate() }
+    let probe = EventTapProbe(fingerCount: counter, log: log)
+    if let dwell = ProcessInfo.processInfo.environment["M0_DWELL_MS"], let ms = Double(dwell) {
+        probe.dwellMillis = ms
+    }
+
+    guard ProcessInfo.processInfo.environment["M0_TAP"] == "1" else {
+        log.record("suppress.result", [
+            "mode": "dry",
+            "pass": true,
+            "note": "build-validated only; set M0_TAP=1 to install the active session "
+                  + "tap (needs Accessibility, may prompt). The S1 gate runs on hardware.",
+        ])
+        return true
+    }
+
+    guard probe.install() else {
+        log.record("suppress.result", ["mode": "tap", "pass": false, "reason": "tap not created"])
+        return false
+    }
+    let seconds = 8.0
+    log.record("suppress.listening",
+               ["seconds": seconds,
+                "instruction": "two-finger pan on a window titlebar, then normal scroll elsewhere"])
+    let deadline = Date().addingTimeInterval(seconds)
+    while Date() < deadline {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.2))
+    }
+    probe.report()
+    log.record("suppress.result",
+               ["mode": "tap", "pass": true,
+                "note": "inspect tap.summary; run a M0_LISTEN=1 fingers listener for live counts."])
+    return true
+}
+
 switch probe {
 case "scaffold":
     exit(runScaffold() ? 0 : 1)
 case "fingers":
     exit(runFingers() ? 0 : 1)
+case "suppress":
+    exit(runSuppress() ? 0 : 1)
 default:
     log.record("error.unknownProbe", ["probe": probe])
     FileHandle.standardError.write(Data("unknown probe: \(probe)\n".utf8))
