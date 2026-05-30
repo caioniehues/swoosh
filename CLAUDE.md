@@ -49,6 +49,12 @@ Still open / revisit-when-relevant: the funding ladder beyond "free + optional s
 - Dock / menubar / App-Switcher / Spaces gestures (v2; some require SIP-off scripting additions many users won't accept).
 - Older macOS fallbacks below 14.0 unless an issue is filed.
 
+## Tooling
+
+- **`ast-grep` (installed)** — preferred for structural code search and, importantly, for **CI lint rules that enforce SPEC invariants**: AX writes only inside the Layer-4 snap engine (`SPEC.md §6`), `dlopen`/private-SPI loading only inside `MultitouchClient` (`SPEC.md §7`), no network/telemetry in the hot path. ast-grep matches code *shape* and needs no build — usable before there's a compilable project.
+- **LSP tool** — for *semantic* questions (true find-references, types, diagnostics, go-to-definition) once the SwiftPM project builds and `sourcekit-lsp` can index it. Caveat: `dlopen`-loaded private frameworks are invisible to the indexer, so ast-grep covers what LSP can't there.
+- **CE tooling** (`/ce-setup`): `gh`, `jq`, `ast-grep`, `vhs`/`silicon`/`ffmpeg` (demo reels via `ce-demo-reel`), `agent-browser` are installed. Machine-local prefs live in `.compound-engineering/config.local.yaml` (gitignored); the committed `config.local.example.yaml` documents the options.
+
 ## Repo conventions
 
 - Default branch: `main`.

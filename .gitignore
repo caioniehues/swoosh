@@ -30,6 +30,9 @@ xcuserdata/
 .env
 .env.local
 
+# Compound Engineering (machine-local config; example file stays committed)
+.compound-engineering/*.local.yaml
+
 # Session memory (Claude Code)
 .remember/
 
