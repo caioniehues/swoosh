@@ -146,9 +146,44 @@ func runFingers() -> Bool {
 /// live finger data, run a `M0_LISTEN=1 ... fingers` listener alongside.
 func runSuppress() -> Bool {
     log.record("suppress.start", ["os": osVersionString(), "axTrusted": AXIsProcessTrusted()])
-    let counter = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
-    counter.initialize(to: 0)
-    defer { counter.deallocate() }
+
+    // Combined mode (M0_LISTEN=1): start the real MultitouchSupport contact
+    // stream IN THIS PROCESS so the tap reads a LIVE finger count through the one
+    // shared KTD8 atomic. Without this, `suppress` reads a private zeroed counter
+    // nothing ever writes — fingers==2 can never fire, so it installs the tap and
+    // logs timing but never swallows an event (the TESTING.md S1 caveat). The MT
+    // callback (sole writer) and the tap callback (sole reader) run on different
+    // threads sharing the same address — exactly the single-writer/single-reader
+    // contract the relaxed atomic was chosen for.
+    let wantLive = ProcessInfo.processInfo.environment["M0_LISTEN"] == "1"
+    var mtClient: MultitouchClient?
+    var ownedCounter: UnsafeMutablePointer<Int32>?
+    let counter: UnsafePointer<Int32>
+
+    if wantLive, let client = MultitouchClient(log: log) {
+        client.enumerate()
+        client.startListening()
+        mtClient = client
+        counter = UnsafePointer(client.fingerCount)   // MT thread writes, tap reads
+        log.record("suppress.mode",
+                   ["combined": true,
+                    "note": "live MultitouchSupport count feeds the tap via the shared KTD8 atomic"])
+    } else {
+        let c = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
+        c.initialize(to: 0)
+        ownedCounter = c
+        counter = UnsafePointer(c)
+        if wantLive {
+            log.record("suppress.mode",
+                       ["combined": false,
+                        "note": "M0_LISTEN set but MultitouchClient init failed — finger count stays 0"])
+        }
+    }
+    defer {
+        mtClient?.stopListening()
+        ownedCounter?.deallocate()
+    }
+
     let probe = EventTapProbe(fingerCount: counter, log: log)
     if let dwell = ProcessInfo.processInfo.environment["M0_DWELL_MS"], let ms = Double(dwell) {
         probe.dwellMillis = ms
@@ -168,18 +203,27 @@ func runSuppress() -> Bool {
         log.record("suppress.result", ["mode": "tap", "pass": false, "reason": "tap not created"])
         return false
     }
-    let seconds = 8.0
+    // Window override so the combined run can give a human time to rest two
+    // fingers AND pan a titlebar in one pass; defaults to the prior 8s.
+    let seconds = ProcessInfo.processInfo.environment["M0_SECONDS"].flatMap(Double.init) ?? 8.0
     log.record("suppress.listening",
                ["seconds": seconds,
-                "instruction": "two-finger pan on a window titlebar, then normal scroll elsewhere"])
+                "live": wantLive,
+                "instruction": wantLive
+                    ? "rest TWO fingers and pan a window titlebar; then normal scroll elsewhere"
+                    : "two-finger pan on a window titlebar, then normal scroll elsewhere"])
     let deadline = Date().addingTimeInterval(seconds)
     while Date() < deadline {
         RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.2))
     }
     probe.report()
     log.record("suppress.result",
-               ["mode": "tap", "pass": true,
-                "note": "inspect tap.summary; run a M0_LISTEN=1 fingers listener for live counts."])
+               ["mode": wantLive ? "tap+live" : "tap", "pass": true,
+                "liveMaxFingers": Int(mtClient?.maxCount ?? 0),
+                "liveFramesSeen": mtClient?.framesSeen ?? 0,
+                "note": wantLive
+                    ? "inspect tap.summary.suppressed; live finger count fed the tap"
+                    : "inspect tap.summary; add M0_LISTEN=1 for live finger counts (combined S1 test)"])
     return true
 }
 

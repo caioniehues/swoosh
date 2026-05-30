@@ -50,28 +50,39 @@ Run from the repo root. Each probe prints JSONL to stdout and appends to
 | **S2** finger count | `M0_LISTEN=1 build/m0spike fingers` | rest **two fingers** on the trackpad during the ~6s window | `mt.count … count:2`, `fingers.result … framesSeen` > 0 |
 | **S3** AX move/resize | hover the cursor over a real window (Finder), then `M0_AX=1 build/m0spike axact` | leave the cursor over the window | the window nudges 20px and back; `ax.write … landed:true` |
 | **S4** haptics | `M0_HAPTIC=1 build/m0spike haptics` | **feel** the trackpad | you feel a click; `haptic.actuate … ok:true` — the felt tap is the real oracle, `IOReturn:0` alone is not enough. Test on an **external** Magic Trackpad too (open hazard). |
-| **S1** suppress | `M0_TAP=1 build/m0spike suppress` | two-finger pan on a window titlebar | ⚠️ **see caveat below** |
+| **S1** suppress | `M0_TAP=1 M0_LISTEN=1 build/m0spike suppress` | rest **two fingers** and pan a window titlebar | `tap.summary … suppressed` > 0 **and** normal two-finger scroll elsewhere still works |
 
 Extra flags:
 - `M0_DWELL_MS=<n> build/m0spike suppress` — dwell-sweep: deliberately burns `<n>` ms
   in the callback to **measure** the `kCGEventTapDisabledByTimeout` threshold per OS.
+- `M0_SECONDS=<n> … suppress` — widen the capture window (default 8s) so you have time
+  to rest two fingers *and* pan a titlebar in the combined run.
 - Run everything in one pass: `M0_LISTEN=1 M0_TAP=1 M0_AX=1 M0_HAPTIC=1 sh spike/m0/run-matrix.sh`
-  → logs to `build/results/m0-macos-<ver>.jsonl`.
+  → logs to `build/results/m0-macos-<ver>.jsonl`. Because both `M0_TAP` and `M0_LISTEN`
+  are set, the matrix's `suppress` step runs in **combined mode** automatically.
 
-## ⚠️ Known caveat: S1 won't actually suppress yet
+## S1 combined probe (the suppress decision is now testable)
 
-The `suppress` probe and the `fingers` probe are **separate processes with separate
-in-memory atomics**, so the tap never sees a live finger count — its finger value
-stays `0`, the `fingers == 2` condition never fires, and it installs the tap, logs
-never-block timing + scroll phases + the titlebar-band check, but **never swallows
-an event**. Running a `fingers` listener "alongside" does **not** help (different
-address space).
+`M0_TAP=1 M0_LISTEN=1 build/m0spike suppress` starts the MultitouchSupport contact
+stream **and** the active tap in **one process sharing the single KTD8 atomic**, so
+the tap reads a live finger count. With both env vars set, `fingers == 2` can actually
+fire and the event is swallowed — this is the real S1 test.
 
-To test S1 end-to-end, the `MultitouchClient` (S2) and `EventTapProbe` (S1) must run
-in the **same process sharing one atomic** — a small combined-probe addition that is
-not yet wired. Until then, the `suppress` probe validates *tap install + never-block
-timing + phase logging (confirm `Began`, not `MayBegin`) + the band check*, but not
-the suppress decision itself.
+> Earlier this was impossible: `suppress` and `fingers` were separate processes with
+> separate atomics, so the tap's finger value stayed `0` and it never swallowed an
+> event. That's resolved — the wiring lives in `runSuppress()` (`main.swift`).
+
+How to read the result:
+- **Suppression happened** if `tap.summary … suppressed` > 0 after you pan a titlebar
+  with two fingers, and `liveMaxFingers` in `suppress.result` reached `2`.
+- **The hard half is the negative test:** while the probe runs, two-finger scroll a
+  *normal* window body (not a titlebar) — it must scroll normally. If suppression
+  bleeds into ordinary scrolling, S1 **fails** (DERISK §1: "breaks normal scroll → pivot").
+- **Phase sanity:** `firstPhases` should contain `Began` (1), not only `MayBegin`
+  (128) — the FB9724671 check.
+
+Without `M0_LISTEN=1`, `suppress` still runs the dry tap-install + never-block timing
++ band check (finger count stays 0, nothing suppressed) — useful for the dwell-sweep.
 
 ## 4. Record the results
 

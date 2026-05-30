@@ -29,6 +29,12 @@ final class MultitouchClient {
 
     /// Shared relaxed atomic — written here (sole writer), read by the tap (U3).
     let fingerCount = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
+    /// The retained `MTDeviceCreateList` array. MUST outlive the listen session:
+    /// it owns the `MTDeviceRef` elements, so releasing it dangles every
+    /// `device.ref`. `MTDeviceStart` wires a device into the run loop, and
+    /// `CFRunLoopRun` then PAC-checks that (now-freed) object — EXC_BAD_ACCESS in
+    /// `__CFCheckCFInfoPACSignature`. Holding the array here keeps the refs valid.
+    private var deviceList: CFArray?
     private(set) var devices: [Device] = []
     private(set) var framesSeen = 0
     private(set) var maxCount: Int32 = 0
@@ -73,6 +79,8 @@ final class MultitouchClient {
             log.record("mt.enumerate", ["ok": false, "reason": "MTDeviceCreateList returned nil"])
             return []
         }
+        deviceList = array   // retain for the client's lifetime — see property note
+
         var result: [Device] = []
         for i in 0..<CFArrayGetCount(array) {
             guard let raw = CFArrayGetValueAtIndex(array, i) else { continue }
