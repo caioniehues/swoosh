@@ -15,6 +15,8 @@ Open-source macOS window snapping + resize via two-finger trackpad gestures on t
 
 `README.md` is the public front door; `CONTRIBUTING.md` is the contributor on-ramp.
 
+`docs/solutions/` holds documented learnings from past work (bugs, decisions, patterns), category-organized with YAML frontmatter (`module`, `tags`, `problem_type`) — relevant when implementing or debugging in a documented area (e.g. the macOS private-API surface).
+
 > **Why multiple docs** (this reverses the old "one spec, not many docs" rule): the 2026-05-30 re-plan surfaced genuine *strategic* forks (charter, identity, durability, distribution) that a technical spec is the wrong place to litigate. The split is deliberate and the docs cross-reference each other; keep them consistent rather than merging them back.
 
 ## Settled forks (do not relitigate without new information)
