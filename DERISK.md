@@ -2,7 +2,7 @@
 
 > How we prove the risky parts work before building anything else, and how we keep them working across macOS releases. Strategy: [`STRATEGY.md`](./STRATEGY.md). Technical design: [`SPEC.md`](./SPEC.md). Sequencing: [`ROADMAP.md`](./ROADMAP.md).
 >
-> Last updated 2026-05-30.
+> Last updated 2026-05-31 (M0 gate GO on macOS 26; latest-macOS-only scope).
 
 ## Why this doc exists
 
@@ -17,17 +17,17 @@ A small throwaway program — no UI, no settings, no packaging — that proves t
 | # | Criterion | Pass condition |
 |---|---|---|
 | **S1 — Capture & suppress** | A session `CGEventTap` decides suppress/pass **synchronously from fast geometry** (`CGWindowListCopyWindowInfo`, no AX on the tap thread) and swallows a two-finger scroll on a window titlebar while letting normal scroll through *on the same titlebar* | No visible scroll jank anywhere; normal two-finger scroll in document areas is untouched; the titlebar pan is consumed; the decision never blocks the tap thread |
-| **S2 — Finger count** | `MultitouchSupport` via `dlopen`/`dlsym` + `MTRegisterContactFrameCallback` reports an accurate, low-latency contact count | Count flips 0→2→0 within one frame of physical touch; no Input Monitoring prompt on macOS 14/15/26 |
+| **S2 — Finger count** | `MultitouchSupport` via `dlopen`/`dlsym` + `MTRegisterContactFrameCallback` reports an accurate, low-latency contact count | Count flips 0→2→0 within one frame of physical touch; Input Monitoring requirement on macOS 26 untested (IM-denied case not run) |
 | **S3 — Locate & act** | `AXUIElementCopyElementAtPosition` (off-thread) resolves the window under the cursor, classifies the titlebar band, and a test `kAXPosition`/`kAXSize` write lands | Correct window identified across Finder/Safari/an Electron app; write visibly moves the window; the AX call runs off the tap thread (see FB11586064 below) |
-| **S4 — Haptic actuation** | A ready/done tap actuates from the **background, non-frontmost** event-tap context on an **external** Magic Trackpad | A tap is felt on commit; if `NSHapticFeedbackManager` can't actuate in that context, the private `MTActuator` path does (and is then added to the capability ledger — `STRATEGY.md §5`) |
+| **S4 — Haptic actuation** | A ready/done tap actuates from the **background, non-frontmost** event-tap context on an **external** Magic Trackpad | A tap is felt on commit; if `NSHapticFeedbackManager` can't actuate in that context, the private `MTActuator` path does (**M0: confirmed felt on macOS 26**; added to the capability ledger — `STRATEGY.md §5`) |
 
-**Test matrix:** run S1–S4 on **macOS 14 (Sonoma), 15 (Sequoia), and 26 (current)**. A criterion is "passed" only when green on all three OSes.
+**Test matrix:** run S1–S4 on **macOS 26 (latest; the only supported target as of 2026-05-31)**. A criterion is "passed" when green on macOS 26. *Result: all four GREEN — gate resolved **GO** (`spike/m0/RESULTS.md`).*
 
 ### Hazards the spike must confront (not discover in production)
 
 - **FB9724671 — `.mayBegin` scroll phase removed in Monterey.** It silently vanished and broke Swish. Do **not** depend on `.mayBegin`; suppression keys off `kCGScrollPhaseBegan` / `kCGScrollPhaseChanged` only (`SPEC.md §6.2`).
 - **FB11586064 — synchronous AX hit-test can block scroll up to ~500ms.** This is why the suppress/pass decision uses fast, in-thread geometry (`CGWindowListCopyWindowInfo`) and the AX hit-test runs only off-thread in the act phase on the `swoosh.ax` queue (`SPEC.md §6.1–6.2`). The spike must demonstrate zero tap-thread blocking, not just "it works."
-- **Private-API permission drift.** `MultitouchSupport` needs no Input Monitoring as of macOS 14 — S2 must confirm this still holds on 26, because it's a tracked risk that could change (`SPEC.md §7`).
+- **Private-API permission drift.** `MultitouchSupport` *enumeration* needs no Input Monitoring; whether the live contact *stream* requires it on macOS 26 is **untested** (the IM-denied case wasn't run) — a tracked risk, closable by a 30-sec IM-denied test (`spike/m0/RESULTS.md`, `SPEC.md §7`).
 
 ## 2. The fixture format (record)
 

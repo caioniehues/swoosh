@@ -1,9 +1,9 @@
 # Swoosh — Strategy
 
 > The product's decision-of-record: what Swoosh is, who it's for, and the four strategic decisions that govern everything in `SPEC.md`, `DERISK.md`, and `ROADMAP.md`.
-> Last updated: 2026-05-30.
+> Last updated: 2026-05-31 (latest-macOS-only scope; M0 gate GO).
 
-Swoosh is a **free, open-source, MIT-licensed macOS app that snaps and resizes windows via two-finger trackpad gestures on window titlebars** — the open, auditable alternative to [Swish](https://highlyopinionated.co/swish/) ($16, closed-source). macOS 14+.
+Swoosh is a **free, open-source, MIT-licensed macOS app that snaps and resizes windows via two-finger trackpad gestures on window titlebars** — the open, auditable alternative to [Swish](https://highlyopinionated.co/swish/) ($16, closed-source). macOS 26+ (latest macOS only).
 
 ---
 
@@ -59,8 +59,8 @@ Ship today via our own tap with an `xattr` postflight (the AeroSpace model): one
 - **No telemetry. Ever.** No analytics, no network calls in the hot path, no "anonymous usage data."
 - **Auditability is a load-bearing promise, not a marketing line.** Open source for an Accessibility-hungry tool is a contract; we will not gate settings behind sponsorship (the mistake that drew backlash for Loop).
 - **Make trust experienceable:** the **CI-asserted capability manifest ships at v1** — a machine-readable list of the private/undocumented surfaces and entitlements the app touches, enforced so a PR that widens that reach fails CI until it updates the manifest. The optional live inspector of AX reads/writes and event-tap suppress/pass decisions is the **post-v1** deepening.
-- **The private-surface ledger** (what the manifest enumerates): `MultitouchSupport.framework` finger-count SPI (load-bearing); `MTActuator` haptic actuation (if the spike shows the public path can't actuate from the background — `SPEC.md §4.4`); the undocumented `"AXFullScreen"` attribute for exit-fullscreen (`SPEC.md §4.6`); plus the public `CGEventTap` and `AXUIElement`. Up to **four** private surfaces — more reason, not less, to make them auditable.
-- **Least privilege:** request Accessibility only; do not request Input Monitoring unless a macOS change forces the MultitouchSupport path to need it (tracked as a risk in `SPEC.md`).
+- **The private-surface ledger** (what the manifest enumerates): `MultitouchSupport.framework` finger-count SPI (load-bearing); `MTActuator` haptic actuation (**confirmed load-bearing by the M0 spike** — felt on macOS 26; `SPEC.md §4.4`); the undocumented `"AXFullScreen"` attribute for exit-fullscreen (`SPEC.md §4.6`); plus the public `CGEventTap` and `AXUIElement`. **Four** private surfaces — more reason, not less, to make them auditable.
+- **Least privilege:** request Accessibility only; do not request Input Monitoring unless the MultitouchSupport path needs it. **M0 status (macOS 26):** the live finger stream works with Input Monitoring *granted*; the IM-denied case is **untested**, so Accessibility-only is the goal but **unverified** — confirm via a 30-sec IM-denied test before v1 (`spike/m0/RESULTS.md`).
 
 ## 6. Pricing & sustainability
 

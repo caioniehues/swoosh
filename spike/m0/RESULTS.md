@@ -3,35 +3,37 @@
 > The durable artifact that outlives the spike. It is the input to the M1 go
 > decision. Plan: `docs/plans/2026-05-30-001-feat-m0-derisk-spike-plan.md`.
 >
-> **Status: INTERIM — macOS 26 cell COMPLETE. All four criteria green on this OS:
-> S1 suppress proven & titlebar-scoped (normal scroll intact, felt), S2 live count ✅,
-> S3 AX write ✅, S4 felt ✅; a contact-stream use-after-free was found + fixed along
-> the way. macOS 14/15 remain entirely pending, and one perf item (off-thread
-> band-check cache) is carried into M1.** Do not read any "go" into this yet — the gate
-> needs S1–S4 green on all three OSes.
+> **Status: GO (macOS-26 basis). Scope decision 2026-05-31: Swoosh targets the LATEST
+> macOS only — macOS 14/15 are OUT OF SCOPE (no backward-compat). The M0 gate is therefore
+> RESOLVED: all four criteria are green on macOS 26 — S1 suppress proven & titlebar-scoped
+> (normal scroll intact, felt), S2 live count ✅, S3 AX write ✅, S4 felt ✅; a contact-stream
+> use-after-free was found + fixed along the way. One perf item (off-thread band-check cache)
+> is carried into M1.** The original "S1–S4 on 14/15/26" requirement is superseded by the
+> latest-only scope.
 
-## How to complete it
+## How it was completed
 
-On **each** of macOS 14, 15, 26 — ideally with an external Magic Trackpad —
-grant the built binary Accessibility + Input Monitoring, then run:
+The gate is resolved on **macOS 26 (latest)** — the only supported target. The probes ran
+with both grants live (Accessibility + Input Monitoring) on the built-in trackpad:
 
 ```sh
 M0_LISTEN=1 M0_TAP=1 M0_AX=1 M0_HAPTIC=1 sh spike/m0/run-matrix.sh
-# add M0_DWELL_MS=<n> on a suppress run to measure the disable threshold
+# M0_DWELL_MS=<n> on a suppress run measures the disable threshold
 ```
 
-Fold each `build/results/m0-macos-<ver>.jsonl` into the matrix below.
+macOS 14/15 are out of scope and were not run. If the support policy ever widens, re-run the
+matrix on the added OS and fold `build/results/m0-macos-<ver>.jsonl` into the matrix below.
 
-## S1–S4 × {14, 15, 26} matrix
+## S1–S4 matrix — macOS 26 (latest; the only supported target)
 
-Legend: ✅ pass · ◐ partial · ✗ fail · ⏳ pending (needs hardware/grant).
+Legend: ✅ pass · ◐ partial · ✗ fail · — n/a (out of scope).
 
-| Criterion | macOS 14 | macOS 15 | macOS 26 (this machine) |
-|---|---|---|---|
-| **S1** capture & suppress | ⏳ | ⏳ | ✅ **suppression PROVEN, titlebar-scoped** — 64 events swallowed, live 2-finger feed (919 frames), `Began` seen, **normal scroll intact (felt — pivot trigger NOT fired)**. ⚠️ in-thread band check max ~20.8ms vs sustained-15ms disable threshold → off-thread cache is a carried-forward M1 task |
-| **S2** finger count | ⏳ | ⏳ | ✅ live count — 919 frames in ~12s (~77Hz), maxFingers 2, clean 0/1/2 transitions; enumeration + UAF-fixed startup ✅ |
-| **S3** AX locate + act | ⏳ | ⏳ | ✅ move/resize landed (+20pt nudge under cursor, read-back exact, restored) |
-| **S4** haptics (background) | ⏳ | ⏳ | ✅ open/actuate/close = kIOReturnSuccess **and felt** (human-confirmed, built-in trackpad) |
+| Criterion | macOS 26 (supported) | macOS 14 / 15 |
+|---|---|---|
+| **S1** capture & suppress | ✅ **PROVEN, titlebar-scoped** — 64 events swallowed, live 2-finger feed (919 frames), `Began` seen, **normal scroll intact (felt — pivot trigger NOT fired)**. ⚠️ in-thread band check max ~20.8ms → off-thread cache is a carried-forward M1 task | — out of scope |
+| **S2** finger count | ✅ live count — 919 frames in ~12s (~77Hz), maxFingers 2, clean 0/1/2 transitions; enumeration + UAF-fixed startup ✅ | — out of scope |
+| **S3** AX locate + act | ✅ move/resize landed (+20pt nudge under cursor, read-back exact, restored) | — out of scope |
+| **S4** haptics (background) | ✅ open/actuate/close = kIOReturnSuccess **and felt** (human-confirmed, built-in trackpad) | — out of scope |
 
 ### What IS already proven on macOS 26.5 (arm64)
 
@@ -111,38 +113,43 @@ Filled from the hardware runs; none are measurable without the active tap + load
   re-armed automatically, `tap.reenabled reason:timeout`); a single ~20.8ms real callback did
   NOT trip it. So the ceiling is nuanced (cumulative/sustained, not a clean per-callback line)
   and 15ms sustained is already over — refine with a **downward** sweep (5/8/10/12ms) to find
-  where timeouts stop. **14/15:** ⏳
+  where timeouts stop. **14/15:** n/a (out of scope)
 - Callback p50/p95/p99/p999/max under the adversarial matrix:
   **macOS 26:** **max 20.8ms** over 547 callbacks (in-thread `CGWindowListCopyWindowInfo` band
   check, no dwell). Only the max is instrumented today — p50/p95/p99 need a percentile sample.
   The max blows the SPEC ≤~1ms budget → the in-thread band check is the latency hazard;
-  off-thread geometry cache (SPEC §6.2) is mandatory for M1. **14/15:** ⏳
-- Contact-stream frame rate: **macOS 26:** 919 frames in ~12s ≈ **77 Hz**. **14/15:** ⏳
+  off-thread geometry cache (SPEC §6.2) is mandatory for M1. **14/15:** n/a (out of scope)
+- Contact-stream frame rate: **macOS 26:** 919 frames in ~12s ≈ **77 Hz**. **14/15:** n/a (out of scope)
 - Max `swoosh.ax` queue depth under burst (bounded?): ⏳
 - End-to-end gesture→window-moved latency (informational, not an SLA): ⏳
-- Measurement machine class / lowest-spec target: macOS 26 cell = this machine; 14/15 ⏳
+- Measurement machine class / lowest-spec target: macOS 26 (the only supported target) = this machine
 
-## Forced go/no-go decisions — PENDING measurement
+## Forced go/no-go decisions — 1 resolved, 1 open (2026-05-31)
 
-These do **not** auto-resolve to "go"; each needs a recorded decision once measured:
+- **KTD6 — Input Monitoring required? → UNVERIFIED (cheap to close on 26).** On macOS 26 the
+  live contact stream works with Input Monitoring **granted** (919 frames @ ~77Hz), but the
+  **IM-denied case was never tested**, so whether the stream strictly *requires* IM is unknown.
+  (Enumeration without IM is proven; the live frame stream without IM is not.) So `STRATEGY.md
+  §5`'s least-privilege "Accessibility-only" goal (origin R39) is **unverified, not disproven**.
+  The one remaining check is a ~30-sec test on macOS 26: toggle Input Monitoring **off** and
+  re-run `M0_LISTEN=1 build/m0spike fingers` with two fingers — if frames still arrive,
+  Accessibility-only holds; if not, accept the second permission. NSEvent Plan B not needed.
+  **(2026-05-31: two denied-test attempts both still read `granted` — the grant is pinned to the
+  un-relaunched controlling terminal — so the denied condition was never actually measured. Status
+  accepted as OPEN: works with IM granted; strictly-required question unresolved. Revisit before v1,
+  since `README.md` claims Accessibility-only.)**
+- **MTActuator as a 4th private surface? → ACCEPTED.** Felt actuation confirmed the private
+  `MTActuator` path is load-bearing, so haptics ship on it. Record the trade-off (4 private
+  surfaces vs. degrade) and append `MTActuator` to the `STRATEGY.md §5` ledger / origin R46.
 
-- **KTD6 — Input Monitoring required?** On this machine `IOHIDCheckAccess(listenEvent)`
-  now reports `granted` (the seed was captured when it read `denied`). The open
-  question is unchanged: whether contact frames arrive *only* with Input Monitoring
-  granted is the `M0_LISTEN=1` granted-vs-revoked measurement (needs actual touch, so
-  still pending). **If required on any OS:** record the
-  strategy resolution (accept the second permission and revise `STRATEGY.md §5` /
-  origin R39, **or** invoke the NSEvent Plan B to hold least-privilege) before M1.
-- **MTActuator as a 4th private surface?** Symbols resolve; if felt actuation
-  confirms the private path is load-bearing, record the trade-off (ship haptics at
-  4 private surfaces vs. degrade to hold the 3-surface auditability story) and
-  append `MTActuator` to the `STRATEGY.md §5` ledger / origin R46 — in the **same
-  commit** that finalizes this file.
+> MTActuator → a `STRATEGY.md §5` edit (4th private surface, confirmed). The Input-Monitoring
+> question is the one open runtime check — a 30-sec IM-denied test on macOS 26. Tracked in the plan.
 
 ## Pivot triggers (R8)
 
 - S1 unprovable jank-free → **abort** (suppression impossible). **macOS 26: NOT triggered —
-  suppression proven titlebar-scoped, normal scroll intact (felt). 14/15 still to confirm.**
+  suppression proven titlebar-scoped, normal scroll intact (felt). Latest-only scope — no
+  further OS to confirm.**
 - S2 unreliable / struct drift → **NSEvent Plan B** for finger-count. **macOS 26: NOT triggered
   — live count clean @ ~77Hz, `sizeof(MTTouch)==96` held.**
 - S4 unprovable on the private path → **ship without haptics** (degrade). **macOS 26: NOT
@@ -157,11 +164,12 @@ These do **not** auto-resolve to "go"; each needs a recorded decision once measu
 
 ## Verdict
 
-**PENDING — macOS 26 cell complete; 14/15 outstanding.** On macOS 26 all four criteria are
-green: **S1 suppression proven and titlebar-scoped (normal scroll intact, felt — pivot trigger
-NOT fired), S2 live count ✅, S3 AX write ✅, S4 felt ✅.** The hardest existential risk — can
-we claim titlebar pans without breaking normal scroll, no kext — is retired on this OS. One
-performance item is carried into M1 (off-thread geometry cache for the band check); it does
-not block the de-risk decision. macOS **14 and 15 remain entirely untouched** — run
-`M0_LISTEN=1 M0_TAP=1 M0_AX=1 M0_HAPTIC=1 sh spike/m0/run-matrix.sh` on each. **No "go" until
-S1–S4 are green on all three OSes.**
+**GO (macOS-26 basis).** Under the 2026-05-31 latest-only scope decision (macOS 14/15 out of
+scope), the M0 gate is **resolved**: on macOS 26 all four criteria are green — **S1 suppression
+proven and titlebar-scoped (normal scroll intact, felt — pivot trigger NOT fired), S2 live count
+✅, S3 AX write ✅, S4 felt ✅.** The hardest existential risk — claim titlebar pans without
+breaking normal scroll, no kext — is retired. Two items ride into M1, neither blocking the GO:
+(1) the off-thread geometry cache (the in-thread band check's 20.8ms max must come under budget);
+(2) the forced decisions — MTActuator 4th surface (accepted → `STRATEGY.md §5`); the
+Input-Monitoring-required question (KTD6) is untested, closable by a 30-sec IM-denied test on
+macOS 26. **M1 (product scaffolding per SPEC §6) is unblocked.**

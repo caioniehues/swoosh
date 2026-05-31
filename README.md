@@ -24,7 +24,7 @@ Open-source macOS window snapping and resizing via two-finger **trackpad gesture
 
 ## Requirements
 
-- macOS 14 Sonoma or newer
+- macOS 26 (Tahoe) — Swoosh targets the latest macOS only
 - Magic Trackpad (built-in or external)
 - Accessibility permission (granted on first launch)
 
@@ -47,7 +47,7 @@ This uses a self-owned tap with a quarantine-stripping postflight (the same appr
 | Milestone | State |
 |---|---|
 | Strategy + spec | ✓ Done — [`STRATEGY.md`](./STRATEGY.md), [`SPEC.md`](./SPEC.md) |
-| M0 — de-risk spike | Not started — [`DERISK.md`](./DERISK.md) |
+| M0 — de-risk spike | ✓ Done — GO on macOS 26 ([`DERISK.md`](./DERISK.md)) |
 | M1 — snap engine + fixture harness | Not started |
 | M2 — recognizer + suppression | Not started |
 | M3 — divider-drag + haptics | Not started |

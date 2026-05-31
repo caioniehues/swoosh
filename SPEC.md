@@ -192,7 +192,7 @@ protocol FingerCountSource {
 }
 ```
 
-- **`MultitouchClient` (primary).** Loads `MultitouchSupport.framework` at runtime via `dlopen`/`dlsym` — **never** via SPM `.linkedFramework` — and registers `MTRegisterContactFrameCallback`. Gives precise, system-wide two-finger disambiguation (the reason Swish/Penc used it). As of macOS 14 it does **not** require Input Monitoring; this is a tracked v1 risk that may change.
+- **`MultitouchClient` (primary).** Loads `MultitouchSupport.framework` at runtime via `dlopen`/`dlsym` — **never** via SPM `.linkedFramework` — and registers `MTRegisterContactFrameCallback`. Gives precise, system-wide two-finger disambiguation (the reason Swish/Penc used it). Enumeration does **not** require Input Monitoring; whether the live contact *stream* requires it on macOS 26 is **untested** (a tracked v1 risk — `DERISK.md`, `spike/m0/RESULTS.md`).
 - **`NSEventFingerCount` (Plan B).** Uses public touch APIs. Accepts some false negatives (e.g. Magic Mouse single-finger ambiguity) and weaker system-wide reliability. Its trigger conditions (when to auto-fall-back, or expose a toggle) live in `DERISK.md`. Both paths satisfy `FingerCountSource`, so Layers 1/3/4 are agnostic to which is active.
 
 The fragility of the private path is the project's central technical risk; it is *managed*, not avoided, by the fixture harness (`DERISK.md`).
@@ -206,13 +206,13 @@ First launch
   ├── Poll AXIsProcessTrustedWithOptions every 1s
   └── On grant → close onboarding, start event tap
 
-If macOS 15+ native window tiling is detected enabled
+If macOS native window tiling is detected enabled
   └── One-time alert: "macOS tiling will fight Swoosh's snaps. Disable it?"
       → Desktop & Dock > Windows > "Drag windows to screen edges to tile" = off
       → Dismissable with "I know what I'm doing"
 ```
 
-We request **Accessibility only** (least privilege, `STRATEGY.md §5`). If a future macOS forces the MultitouchSupport path to require Input Monitoring, the onboarding gains a second, separately-justified prompt.
+We request **Accessibility only** (least privilege, `STRATEGY.md §5`). If the MultitouchSupport path requires Input Monitoring (M0: untested on macOS 26 — `spike/m0/RESULTS.md`), the onboarding gains a second, separately-justified prompt.
 
 ## 9. Key types (Swift API sketch)
 
@@ -270,7 +270,7 @@ enum Direction {
 ## 10. Edge cases & known issues
 
 - **Stage Manager** re-tiles after AX placement; not officially supported in v1.
-- **macOS 15+ native tiling** animations conflict with our placement; onboarding prompts to disable.
+- **macOS native tiling** animations conflict with our placement; onboarding prompts to disable.
 - **Native fullscreen** — placement is meaningless; the exit-fullscreen verb (§4.6) is the supported interaction, otherwise no-op.
 - **Per-display scaling / Retina & coordinate spaces** — resolve the `FractionalRect` against the visibleFrame of the *screen containing the window's current center* (not the main screen). AX window position is **global, top-left origin, +y down, referenced to the primary display** — write it directly via `kAXPosition` with no flip. A flip to/from AppKit's bottom-left space is needed *only* if an intermediate computation uses `NSScreen` coordinates, and that flip must use the **primary** screen's height as the Y-reference, not the window's screen (which is wrong on a secondary display of different height). See §5.
 - **Custom titlebars (Electron, Safari)** — there is **no** `kAXTitleBarHeightAttribute` in the SDK. Derive the titlebar band from real signals: the frames of AX title-UI elements (`kAXCloseButton` / `kAXFullScreenButton` subrole children, or the toolbar), or the gap between the window frame and its content-area frame, or a per-app override table — with 28pt as the documented fallback.

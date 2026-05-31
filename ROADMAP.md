@@ -2,11 +2,11 @@
 
 > Sequencing for the work. What each milestone delivers, what gates it, and where each ideation survivor lands. Decisions: [`STRATEGY.md`](./STRATEGY.md). Design: [`SPEC.md`](./SPEC.md). De-risk gate: [`DERISK.md`](./DERISK.md).
 >
-> Last updated 2026-05-30. Status: pre-implementation.
+> Last updated 2026-05-31 (M0 gate GO; latest-macOS-only). Status: M0 passed; M1 not yet started.
 
 ## Sequencing principles
 
-1. **De-risk first.** `M0` (the spike, `DERISK.md §1`) gates everything. No engine, no UI, no packaging until S1–S4 pass on macOS 14 / 15 / 26.
+1. **De-risk first.** `M0` (the spike, `DERISK.md §1`) gates everything. No engine, no UI, no packaging until S1–S4 pass on macOS 26 (latest; the only supported target). *(Done — gate **GO**, `spike/m0/RESULTS.md`.)*
 2. **The harness is built *with* the engine, not after.** The fixture format and replayer (`DERISK.md §2–3`) land in `M1` so the macOS-beta canary has something to replay from day one.
 3. **Feel before breadth.** Match Swish's *loved* mechanics (swipe, divider-drag, haptics) before adding gesture surfaces. A small set that feels native beats a large set that feels janky.
 4. **Distribution is not "later."** The install path ships in v0.1.0 (`M6`). It's the self-owned tap, which has no external deadline; notarization is a separate, traction-triggered milestone (see *Distribution* below).
@@ -15,12 +15,12 @@
 
 | Milestone | Delivers | Gate |
 |---|---|---|
-| **M0 — De-risk spike** | Throwaway program proving S1–S4 (capture/suppress, finger-count, AX locate/act, **haptic actuation**) on macOS 14/15/26 (`DERISK.md §1`) | — (this is the gate) |
+| **M0 — De-risk spike** | Throwaway program proving S1–S4 (capture/suppress, finger-count, AX locate/act, **haptic actuation**) on macOS 26 (`DERISK.md §1`) — **DONE, GO** | ✓ green |
 | **M1 — Snap engine + fixture harness** | Fraction/pixel-native engine (`SPEC.md §5`); capture format + headless replayer (`DERISK.md §2–3`) in CI | M0 green |
 | **M2 — Recognizer + suppression** | Two-finger swipe + hold-grid picker; the suppression strategy hardened against FB9724671 / FB11586064 (`SPEC.md §6.2`) | M1 |
 | **M3 — Divider-drag + haptics** | Multi-window divider-drag resize (`SPEC.md §4.3`); ready/done haptic taps (`SPEC.md §4.4`) — the headline feel features | M2 |
 | **M4 — Keyboard + restore** | Configurable shortcuts; exit-fullscreen verb; restore ring buffer (`SPEC.md §4.5–4.6`) | M2 |
-| **M5 — Settings + onboarding** | SwiftUI settings; Accessibility onboarding + Sequoia/26-tiling conflict prompt (`SPEC.md §8`) | M3, M4 |
+| **M5 — Settings + onboarding** | SwiftUI settings; Accessibility onboarding + macOS 26 native-tiling conflict prompt (`SPEC.md §8`) | M3, M4 |
 | **M6 — Distribution + v0.1.0** | Self-owned Homebrew tap with `xattr` postflight; README install; **static capability manifest + CI assertion** (`STRATEGY.md §5`); `MAINTAINERS` / hand-off note (`STRATEGY.md §6.1`); first tagged release | M5; canary green |
 
 ## Post-v1

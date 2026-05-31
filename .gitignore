@@ -36,6 +36,9 @@ xcuserdata/
 # Session memory (Claude Code)
 .remember/
 
+# Planning files (Claude Code planning-with-files)
+.planning/
+
 # Editor
 .vscode/
 .idea/
