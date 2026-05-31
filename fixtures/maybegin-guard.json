@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "maybegin-guard",
+    "description": "A two-finger event in the titlebar band reporting phase MayBegin (128). FB9724671: MayBegin was silently removed in Monterey and broke Swish — suppression must key off Began/Changed only, so this must pass, not suppress.",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 128, "isContinuous": true, "cursorX": 400, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" }
+  ]
+}

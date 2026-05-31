@@ -39,7 +39,7 @@ A **capture mode** — a hidden runtime toggle (a `defaults` key), shipped in *r
 - **Layer 3b (act):** the AX hit-test *results* (resolved window subrole, frame) — recorded as resolved values, not live AX handles, so they replay without the original apps running.
 - **Decision log:** for each event, what Swoosh *decided* (suppress / pass, target resolved, frame written).
 
-A fixture is a single self-contained file (one gesture or short session). Fixtures live in `tests/fixtures/` and are the lowest-bar community contribution (`CONTRIBUTING.md`).
+A fixture is a single self-contained file (one gesture or short session). Fixtures live in `fixtures/` — the originally-specced `tests/fixtures/` would case-collide with SwiftPM's `Tests/` directory on case-insensitive macOS filesystems — and are the lowest-bar community contribution (`CONTRIBUTING.md`).
 
 > Caveat to design around: a fixture of a private-API stream may itself drift across macOS versions (the contact-frame struct layout could change). The capture records the *decoded* contact count plus the raw frame, so a struct change is detectable as "raw present, decode mismatched" rather than a silent wrong answer.
 

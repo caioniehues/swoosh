@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "document-scroll",
+    "description": "Two-finger scroll in a window's document body (below the titlebar band). Must pass through untouched — the core 'don't break normal scrolling' guarantee.",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 400, "cursorY": 300, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 400, "cursorY": 305, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" },
+    { "t": 0.032, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 401, "cursorY": 318, "decision": "pass" }
+  ]
+}

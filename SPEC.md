@@ -2,7 +2,7 @@
 
 > The canonical technical design. Strategy and the resolved product forks live in [`STRATEGY.md`](./STRATEGY.md); the de-risk spike and fixture harness in [`DERISK.md`](./DERISK.md); sequencing in [`ROADMAP.md`](./ROADMAP.md).
 >
-> **Status: pre-implementation. Spec only.** No code beyond stubs yet. Last updated 2026-05-30.
+> **Status: M1 in progress.** The fraction-native engine (§5) and the record/replay fixture harness (`DERISK.md §2–3`) are implemented as the four-layer SwiftPM product (§6) — `SwooshCore` (pure engine + `Recognizer`), `SwooshFixtures` (harness), `SwooshKit` (Layers 1–4 runtime), `swooshd`. The recognizer (direction→target, hold-grid), divider-drag, haptics, keyboard/restore, settings, and distribution remain. Note: the §9 `SnapEngine.rect(for:on screen:)` sketch is realized as the pure `rect(for:in visibleFrame:)` (the `NSScreen` adapter lives in `SwooshKit`). Last updated 2026-05-31.
 
 Open-source macOS window snapping and resizing via two-finger trackpad gestures on titlebars. A faithful, free, MIT-licensed reimplementation of the snap subset of [Swish](https://highlyopinionated.co/swish/) — matching its *feel*, beating its 3×3 size ceiling.
 

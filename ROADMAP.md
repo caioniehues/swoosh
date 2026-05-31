@@ -2,7 +2,7 @@
 
 > Sequencing for the work. What each milestone delivers, what gates it, and where each ideation survivor lands. Decisions: [`STRATEGY.md`](./STRATEGY.md). Design: [`SPEC.md`](./SPEC.md). De-risk gate: [`DERISK.md`](./DERISK.md).
 >
-> Last updated 2026-05-31 (M0 gate GO; latest-macOS-only). Status: M0 passed; M1 not yet started.
+> Last updated 2026-05-31 (M0 gate GO; latest-macOS-only). Status: M0 passed; **M1 in progress** — fraction-native snap engine + record/replay fixture harness landed (`swift test` green, replayer wired into CI); the recognizer, divider-drag, haptics, keyboard, settings, and distribution still ahead.
 
 ## Sequencing principles
 
@@ -16,7 +16,7 @@
 | Milestone | Delivers | Gate |
 |---|---|---|
 | **M0 — De-risk spike** | Throwaway program proving S1–S4 (capture/suppress, finger-count, AX locate/act, **haptic actuation**) on macOS 26 (`DERISK.md §1`) — **DONE, GO** | ✓ green |
-| **M1 — Snap engine + fixture harness** | Fraction/pixel-native engine (`SPEC.md §5`); capture format + headless replayer (`DERISK.md §2–3`) in CI | M0 green |
+| **M1 — Snap engine + fixture harness** | Fraction/pixel-native engine (`SPEC.md §5`); capture format + headless replayer (`DERISK.md §2–3`) in CI — **engine + harness done; four-layer SwiftPM scaffold + CI replayer landed** | M0 green |
 | **M2 — Recognizer + suppression** | Two-finger swipe + hold-grid picker; the suppression strategy hardened against FB9724671 / FB11586064 (`SPEC.md §6.2`) | M1 |
 | **M3 — Divider-drag + haptics** | Multi-window divider-drag resize (`SPEC.md §4.3`); ready/done haptic taps (`SPEC.md §4.4`) — the headline feel features | M2 |
 | **M4 — Keyboard + restore** | Configurable shortcuts; exit-fullscreen verb; restore ring buffer (`SPEC.md §4.5–4.6`) | M2 |

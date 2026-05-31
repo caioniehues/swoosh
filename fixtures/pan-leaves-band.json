@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "pan-leaves-band",
+    "description": "A pan that begins on the titlebar (suppress) then drags down into the document body. Suppression is decided per-event from the live cursor, so once the cursor leaves the band the events pass — proving suppression cannot 'stick' past the titlebar.",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 400, "cursorY": 12, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 400, "cursorY": 26, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.032, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 400, "cursorY": 60, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" },
+    { "t": 0.048, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 400, "cursorY": 120, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" }
+  ]
+}

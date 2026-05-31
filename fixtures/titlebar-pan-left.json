@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "titlebar-pan-left",
+    "description": "Two-finger left swipe on a window titlebar. All events must be suppressed (the gesture is ours).",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 400, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 392, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.032, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 380, "cursorY": 13, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.048, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 360, "cursorY": 13, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" }
+  ]
+}

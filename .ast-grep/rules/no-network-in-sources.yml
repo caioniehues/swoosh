@@ -1,0 +1,10 @@
+id: no-network-in-sources
+language: swift
+severity: error
+message: >-
+  Swoosh ships no telemetry and no network in the hot path, ever (CLAUDE.md / STRATEGY.md).
+  Remove this URLSession reference.
+rule:
+  pattern: URLSession
+files:
+  - "Sources/**/*.swift"

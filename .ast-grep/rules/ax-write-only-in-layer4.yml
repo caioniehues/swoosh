@@ -1,0 +1,13 @@
+id: ax-write-only-in-layer4
+language: swift
+severity: error
+message: >-
+  AX writes are a Layer-4 (act) operation and must run on the swoosh.ax queue (SPEC §6). Keep
+  AXUIElementSetAttributeValue inside SnapApplier.swift — an AX write anywhere near the tap
+  thread is the FB11586064 stall this architecture exists to avoid.
+rule:
+  pattern: AXUIElementSetAttributeValue($$$)
+files:
+  - "Sources/**/*.swift"
+ignores:
+  - "Sources/SwooshKit/SnapApplier.swift"

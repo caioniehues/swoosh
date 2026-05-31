@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "tall-titlebar-safari",
+    "description": "A tall custom titlebar (Safari-like, 52pt) supplied by fast geometry. A pan at y=40 is inside the tall band (suppress); at y=60 it is below it (pass). Confirms the gate honors the supplied band height, not a fixed 28pt (SPEC §6.2/§10).",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 500, "cursorY": 40, "bandX": 0, "bandY": 0, "bandW": 1200, "bandH": 52, "decision": "suppress" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 520, "cursorY": 40, "bandX": 0, "bandY": 0, "bandW": 1200, "bandH": 52, "decision": "suppress" },
+    { "t": 0.032, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 520, "cursorY": 60, "bandX": 0, "bandY": 0, "bandW": 1200, "bandH": 52, "decision": "pass" }
+  ]
+}

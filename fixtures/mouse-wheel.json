@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "mouse-wheel",
+    "description": "A discrete mouse wheel (IsContinuous == false) over a titlebar. Must pass even though the cursor is in the band — a wheel is never our two-finger gesture.",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 0, "phase": 0, "isContinuous": false, "cursorX": 400, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" },
+    { "t": 0.120, "contactCount": 0, "phase": 0, "isContinuous": false, "cursorX": 400, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" }
+  ]
+}

@@ -1,0 +1,12 @@
+id: dlopen-only-in-multitouchclient
+language: swift
+severity: error
+message: >-
+  Private-framework loading (dlopen) is confined to MultitouchClient.swift (SPEC §7 / CLAUDE.md).
+  Load private SPI only there so the capability surface stays auditable in one place.
+rule:
+  pattern: dlopen($$$)
+files:
+  - "Sources/**/*.swift"
+ignores:
+  - "Sources/SwooshKit/MultitouchClient.swift"

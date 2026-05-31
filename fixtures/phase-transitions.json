@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "phase-transitions",
+    "description": "A full gesture lifecycle in the band: Began/Changed suppress, but Ended (4) and Cancelled (8) pass — only Began/Changed are our suppression window (FB9724671: never MayBegin).",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 300, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 320, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.048, "contactCount": 2, "phase": 4, "isContinuous": true, "cursorX": 360, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" },
+    { "t": 0.060, "contactCount": 0, "phase": 8, "isContinuous": true, "cursorX": 360, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "pass" }
+  ]
+}

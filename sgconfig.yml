@@ -1,0 +1,4 @@
+# ast-grep project config. Rules enforce the SPEC's hard architectural invariants as a
+# build-free structural lint (CLAUDE.md "Tooling"). Run: `ast-grep scan`.
+ruleDirs:
+  - .ast-grep/rules

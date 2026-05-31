@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The build/test job is the M1 deliverable's CI gate; the replayer test target IS the
+# DERISK §3 regression canary (it replays tests/fixtures/ on every PR with no hardware).
+jobs:
+  build-test:
+    name: build + test (macOS)
+    runs-on: macos-latest   # must provide the macOS 26 SDK (Xcode 26+); Swoosh is macOS-26-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift toolchain
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test (engine + fixture-replayer canary)
+        run: swift test
+
+  lint:
+    name: SPEC invariants (ast-grep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ast-grep
+        run: npm install -g @ast-grep/cli
+      - name: Scan (AX-writes / dlopen / network confinement)
+        run: ast-grep scan
+      - name: Capability manifest assertion (STRATEGY §5)
+        run: sh scripts/check-capabilities.sh

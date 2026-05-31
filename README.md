@@ -2,7 +2,7 @@
 
 Open-source macOS window snapping and resizing via two-finger **trackpad gestures on titlebars** — a free, auditable, MIT-licensed alternative to [Swish](https://highlyopinionated.co/swish/).
 
-> **Status: spec only.** No code yet — this repo is the design. See [`STRATEGY.md`](./STRATEGY.md) (why), [`SPEC.md`](./SPEC.md) (how), [`ROADMAP.md`](./ROADMAP.md) (when).
+> **Status: in development.** M0 (de-risk) is GO on macOS 26; the fraction-native snap engine, the record/replay fixture harness, the gesture recognizer, divider-drag + haptics, keyboard shortcuts, and the settings core are implemented and tested (`swift test`). The SwiftUI app shell and the v0.1.0 release remain. See [`STRATEGY.md`](./STRATEGY.md) (why), [`SPEC.md`](./SPEC.md) (how), [`ROADMAP.md`](./ROADMAP.md) (when).
 
 ## What it does (when finished)
 
@@ -20,7 +20,7 @@ Open-source macOS window snapping and resizing via two-finger **trackpad gesture
 
 - **No telemetry. Ever.** No analytics, no network calls in the gesture path.
 - **Free to users, forever** (MIT). The only permission requested is **Accessibility** — needed to hit-test titlebars and move windows; nothing else, and nothing leaves your machine.
-- Auditability is the point: the code is open precisely because an Accessibility-granted utility should be inspectable. Swoosh uses a few **private Apple APIs** (finger-count, and likely haptics) — every one is enumerated in a **CI-asserted capability manifest that ships at v1**, so a change that widens the app's reach fails CI. A live "what did it touch" inspector is planned ([`ROADMAP.md`](./ROADMAP.md)).
+- Auditability is the point: the code is open precisely because an Accessibility-granted utility should be inspectable. Swoosh uses a few **private Apple APIs** (finger-count, haptics, exit-fullscreen) — every one is enumerated in the **CI-asserted capability manifest** ([`CAPABILITIES.md`](./CAPABILITIES.md)), so a change that reaches for an undeclared private surface fails CI (`scripts/check-capabilities.sh`). A live "what did it touch" inspector is planned ([`ROADMAP.md`](./ROADMAP.md)).
 
 ## Requirements
 
@@ -28,9 +28,14 @@ Open-source macOS window snapping and resizing via two-finger **trackpad gesture
 - Magic Trackpad (built-in or external)
 - Accessibility permission (granted on first launch)
 
-## Install (when v0.1.0 ships)
+## Install
 
-Not yet. Track the [milestones](./ROADMAP.md#milestones).
+The Homebrew cask ships with v0.1.0 (track the [milestones](./ROADMAP.md#milestones)). **You can already build and run from source today:**
+
+```bash
+git clone https://github.com/caioniehues/swoosh && cd swoosh
+swift build && swift test   # builds the daemon; runs the engine + fixture-replayer canary
+```
 
 When the first release tag exists, install via the Swoosh Homebrew tap (no `$99` Apple signing, no scary `xattr` dance — the tap handles quarantine for you):
 
@@ -48,12 +53,14 @@ This uses a self-owned tap with a quarantine-stripping postflight (the same appr
 |---|---|
 | Strategy + spec | ✓ Done — [`STRATEGY.md`](./STRATEGY.md), [`SPEC.md`](./SPEC.md) |
 | M0 — de-risk spike | ✓ Done — GO on macOS 26 ([`DERISK.md`](./DERISK.md)) |
-| M1 — snap engine + fixture harness | Not started |
-| M2 — recognizer + suppression | Not started |
-| M3 — divider-drag + haptics | Not started |
-| v0.1.0 release | Not started |
+| M1 — snap engine + fixture harness | ✓ Done — `swift test` green (engine + replayer canary) |
+| M2 — recognizer + suppression | ✓ Core done — swipe→target, hold-grid, corpus hardened |
+| M3 — divider-drag + haptics | ✓ Core done — divider geometry tested; MTActuator wired |
+| M4 — keyboard + restore | ✓ Core done — bindings + exit-fullscreen verb |
+| M5 — settings + onboarding | Core done (model/store/permissions); SwiftUI app shell pending |
+| v0.1.0 release | Not started — needs the app shell + a tagged build |
 
-Build/run instructions arrive once there's something to build.
+Build + test: `swift build && swift test`. Live trackpad/AX behavior is verified on real hardware (the daemon target is `swooshd`); the headless CI runs the engine + the fixture-replayer regression canary.
 
 ## Contributing
 

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "titlebar-pan-diagonal",
+    "description": "Two-finger diagonal pan on a titlebar (→ quarter snap). The suppress/pass gate is direction-agnostic — it suppresses on contacts+phase+band alone, so every in-band event suppresses regardless of the diagonal motion.",
+    "recordedOnOS": "macOS 26.5",
+    "capturedAt": "2026-05-31"
+  },
+  "samples": [
+    { "t": 0.000, "contactCount": 2, "phase": 1, "isContinuous": true, "cursorX": 400, "cursorY": 14, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.016, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 408, "cursorY": 16, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" },
+    { "t": 0.032, "contactCount": 2, "phase": 2, "isContinuous": true, "cursorX": 418, "cursorY": 20, "bandX": 0, "bandY": 0, "bandW": 800, "bandH": 28, "decision": "suppress" }
+  ]
+}

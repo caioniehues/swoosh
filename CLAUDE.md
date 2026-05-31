@@ -2,7 +2,7 @@
 
 Open-source macOS window snapping + resize via two-finger trackpad gestures on titlebars. MIT, macOS 26+ (latest macOS only). A free, auditable alternative to Swish.
 
-**Status: M0 gate RESOLVED — GO.** S1–S4 are green on **macOS 26** (the only supported target; Swoosh is **latest-macOS-only** as of 2026-05-31). Planning is split across four canonical docs (see the map below); the brainstorm requirements + M0 plan live in `docs/brainstorms/` and `docs/plans/`. The **throwaway** M0 spike lives in `spike/m0/` (deleted once M1 starts; only `RESULTS.md` survives — `spike/m0/RESULTS.md`). M1 product scaffolding (`Package.swift`/`Sources/`) is now **unblocked** but not yet started.
+**Status: M0 gate RESOLVED — GO; M1 in progress.** S1–S4 are green on **macOS 26** (the only supported target; Swoosh is **latest-macOS-only** as of 2026-05-31). Planning is split across four canonical docs (see the map below); the brainstorm requirements + M0 plan live in `docs/brainstorms/` and `docs/plans/`. The throwaway M0 spike has been **retired** — only `spike/m0/RESULTS.md` survives (the durable go/no-go artifact). The four-layer SwiftPM product is scaffolded (`Package.swift`, `Sources/{SwooshCore,SwooshFixtures,SwooshKit,swooshd}`): the fraction-native snap engine (`SPEC.md §5`) and the record/replay fixture harness (`DERISK.md §2–3`, corpus in `fixtures/`) are implemented and green (`swift build` / `swift test`).
 
 ## Document map — who owns what
 
@@ -15,7 +15,7 @@ Open-source macOS window snapping + resize via two-finger trackpad gestures on t
 
 `README.md` is the public front door; `CONTRIBUTING.md` is the contributor on-ramp.
 
-`docs/solutions/` holds documented learnings from past work (bugs, decisions, patterns), category-organized with YAML frontmatter (`module`, `tags`, `problem_type`) — relevant when implementing or debugging in a documented area (e.g. the macOS private-API surface).
+`docs/solutions/` holds documented learnings from past work (bugs, decisions, patterns), category-organized with YAML frontmatter (`module`, `tags`, `problem_type`) — relevant when implementing or debugging in a documented area. Documented so far: the macOS private-API spike findings; the **pure-decision / fixture-replay testability seam** (`architecture-patterns/`); the **CI capability-manifest assertion** + ast-grep layering rules (`architecture-patterns/`); and **SwiftPM / Swift-6 macOS build gotchas** — case-insensitive `Tests/`, `.v5` mode for C-interop targets, `CGFloat` SwiftUI formatting, primary-display coordinate flip (`tooling-decisions/`).
 
 > **Why multiple docs** (this reverses the old "one spec, not many docs" rule): the 2026-05-30 re-plan surfaced genuine *strategic* forks (charter, identity, durability, distribution) that a technical spec is the wrong place to litigate. The split is deliberate and the docs cross-reference each other; keep them consistent rather than merging them back.
 
@@ -30,7 +30,7 @@ Still open / revisit-when-relevant: the funding ladder beyond "free + optional s
 
 ## Working in this repo
 
-1. **The M0 gate is green (GO); M1 scaffolding is now unblocked.** The throwaway M0 spike (`spike/m0/`, `swiftc`-built, deliberately **no** SwiftPM — *not* the product skeleton; deleted once M1 starts, only `RESULTS.md` survives) proved S1–S4 on macOS 26. Scaffolding the real product (`Package.swift`, `Sources/`, the four-layer tree per `SPEC.md §6`) is therefore now **sanctioned** (M1) — it just hasn't started yet, so the spike remains the only code on disk for now. (The user pushed back on premature stubs *before* the gate was green; that gate is now passed.)
+1. **M0 gate is GO; M1 is in progress.** The throwaway M0 spike is **retired** (only `spike/m0/RESULTS.md` survives; its S4/MTActuator haptic code is recoverable from git commit `1549b29` for M3). The real product is scaffolded per `SPEC.md §6`: `SwooshCore` (pure fraction engine + the suppress/pass `Recognizer`), `SwooshFixtures` (record/replay harness), `SwooshKit` (Layers 1–4 runtime: `EventTap`, `MultitouchClient`, `WindowGeometryCache`, `SnapApplier`, `GestureService`), and the `swooshd` executable. Build/test with `swift build` / `swift test`. Still ahead: M2 recognizer (direction→target, hold-grid), M3 divider-drag + haptics, M4 keyboard/restore, M5 settings/onboarding, M6 distribution.
 2. **Match the contracts when code starts.** The four-layer architecture and threading model (`SPEC.md §6`) and the project layout are contracts. Event-tap callbacks must not block; AX writes go on the `swoosh.ax` serial queue.
 3. Reference docs by file + section number; numbering is intended to be stable.
 
@@ -53,8 +53,8 @@ Still open / revisit-when-relevant: the funding ladder beyond "free + optional s
 
 ## Tooling
 
-- **`ast-grep` (installed)** — preferred for structural code search and, importantly, for **CI lint rules that enforce SPEC invariants**: AX writes only inside the Layer-4 snap engine (`SPEC.md §6`), `dlopen`/private-SPI loading only inside `MultitouchClient` (`SPEC.md §7`), no network/telemetry in the hot path. ast-grep matches code *shape* and needs no build — usable before there's a compilable project.
-- **LSP tool** — for *semantic* questions (true find-references, types, diagnostics, go-to-definition) once the SwiftPM project builds and `sourcekit-lsp` can index it. Caveat: `dlopen`-loaded private frameworks are invisible to the indexer, so ast-grep covers what LSP can't there. Second caveat: the M0 spike is `swiftc`-built with a `-import-objc-header` bridge and **no** compile database, so SourceKit emits false "cannot find type/symbol" diagnostics on it — `sh spike/m0/build.sh` is the real check, not the LSP squiggles.
+- **`ast-grep` (installed)** — preferred for structural code search and, importantly, for **CI lint rules that enforce SPEC invariants**: AX writes only inside the Layer-4 snap engine (`SPEC.md §6`), `dlopen`/private-SPI loading only inside `MultitouchClient` (`SPEC.md §7`), no network/telemetry in the hot path. ast-grep matches code *shape* and needs no build. These rules are now implemented in `.ast-grep/rules/` (config `sgconfig.yml`) and run in CI (`.github/workflows/ci.yml`); run locally with `ast-grep scan`.
+- **LSP tool** — for *semantic* questions (true find-references, types, diagnostics, go-to-definition). The SwiftPM project now builds, so `sourcekit-lsp` can index it (`swift build` succeeds). Caveat: `dlopen`-loaded private frameworks are invisible to the indexer, so ast-grep covers what LSP can't there. Note: `SwooshKit`/`swooshd` build in Swift 5 language mode (C-interop with `@convention(c)` tap/MT callbacks); the pure `SwooshCore`/`SwooshFixtures` are Swift 6.
 - **CE tooling** (`/ce-setup`): `gh`, `jq`, `ast-grep`, `vhs`/`silicon`/`ffmpeg` (demo reels via `ce-demo-reel`), `agent-browser` are installed. Machine-local prefs live in `.compound-engineering/config.local.yaml` (gitignored); the committed `config.local.example.yaml` documents the options.
 
 ## Repo conventions
